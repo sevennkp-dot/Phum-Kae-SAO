@@ -46,12 +46,10 @@
   <!-- Report Form -->
   <div id="reportForm" class="max-w-2xl mx-auto">
 
-    <div class="text-center mt-4 mb-4">
-      <button id="openLoginBtn" class="text-sm text-gray-600 underline hover:text-gray-800">เข้าสู่ระบบผู้ดูแล</button>
-    </div>
+    
 
     <!-- Tracking button -->
-    <button id="openTrackingBtn" class="text-sm text-blue-700 underline block text-center mb-4">ตรวจสอบความคืบหน้าการแจ้งเหตุ</button>
+    
 
     <div class="bg-white rounded-2xl shadow-xl p-8 border border-red-100">
       <div class="text-center mb-8">
@@ -89,7 +87,7 @@
 
         <div>
           <label class="block text-sm font-medium text-gray-700 mb-2">สถานที่เกิดเหตุ (รายละเอียดเพิ่มเติม)</label>
-          <textarea id="inputLocationNote" name="location_note" class="w-full px-4 py-3 border rounded-lg text-lg" placeholder="เช่น หน้าร้านค้า XYZ ใกล้วัด..."></textarea>
+          <textarea id="inputLocationNote" name="location_note" class="w-full px-4 py-3 border rounded-lg text-lg" placeholder="เช่น บ้านโนนจัทร์ หมู่ 8 ใกล้วัด..."></textarea>
         </div>
 
         <div>
@@ -106,10 +104,16 @@
             </div>
           </div>
         </div>
+       
+        <button id="submitBtn" type="submit" class="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-4 rounded-lg text-lg">
+          แจ้งเหตุฉุกเฉิน</button>
 
+        <button id="openLoginBtn" type="button" class="w-full bg-amber-500 hover:bg-amber-600 text-white font-bold py-4 rounded-lg text-lg">
+          เข้าสู่ระบบผู้ดูแล</button>
+
+        <button id="openTrackingBtn" type="button" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 rounded-lg text-lg">
+          ตรวจสอบความคืบหน้าการแจ้งเหตุ</button>
         
-
-        <button id="submitBtn" type="submit" class="w-full bg-red-600 text-white font-bold py-4 rounded-lg text-lg">แจ้งเหตุฉุกเฉิน</button>
       </form>
     </div>
   </div>
