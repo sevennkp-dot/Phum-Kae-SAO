@@ -17,6 +17,9 @@
     /* toast */
     .toast{position:fixed;left:50%;transform:translateX(-50%) translateY(-10px);top:18px;z-index:60;padding:10px 16px;border-radius:10px;color:white;font-weight:600;opacity:0;transition:all .28s ease;backdrop-filter: blur(4px)}
     .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+    /* highlight animation for new items */
+    .pulse-highlight{animation:pulse 2s ease-in-out; border-color:#fde68a}
+    @keyframes pulse{0%{box-shadow:0 0 0 0 rgba(253,230,138,0.0)}50%{box-shadow:0 6px 18px -6px rgba(253,230,138,0.6)}100%{box-shadow:0 0 0 0 rgba(253,230,138,0.0)}}
   </style>
 </head>
 <body class="min-h-screen text-gray-800">
@@ -132,6 +135,7 @@
         <h3 class="text-lg font-bold">แดชบอร์ด — รายการแจ้งเหตุ</h3>
         <div class="flex gap-2">
           <button id="refreshReports" class="px-3 py-2 rounded-lg bg-gray-100">รีเฟรช</button>
+          <button id="enableSoundBtn" class="px-3 py-2 rounded-lg bg-blue-600 text-white">เปิดเสียงแจ้งเตือน</button>
           <button id="logoutBtn" class="px-3 py-2 rounded-lg bg-gray-700 text-white">ออกจากระบบ</button>
         </div>
       </div>
@@ -159,6 +163,163 @@ function toast(message, type='info'){
   t.classList.add('show'); clearTimeout(t._h); t._h = setTimeout(()=>{ t.classList.remove('show'); }, 2500);
 }
 
+// --- Alert sound + pending modal (urgent notifications) ---
+// Robust alert audio: crossOrigin, WebAudio amplification, explicit user enable button, and oscillator fallback
+const ALERT_SOUND_URL = 'https://actions.google.com/sounds/v1/emergency/ambulance_siren.ogg';
+const alertAudio = new Audio(ALERT_SOUND_URL);
+alertAudio.loop = true; alertAudio.preload = 'auto';
+alertAudio.crossOrigin = 'anonymous';
+
+// Web Audio nodes
+let audioCtx = null;
+let alertSource = null;
+let alertGain = null;
+let oscillatorNode = null; // fallback if media element can't play
+let initialGain = 2.0; // amplification factor (1.0 = unchanged)
+let audioEnabled = false; // set true after user enables sound
+
+function setupAlertAudio(){
+  if(audioCtx || !alertAudio) return;
+  try{
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    // create source from media element; may throw if not allowed cross-origin
+    try{
+      alertSource = audioCtx.createMediaElementSource(alertAudio);
+      alertGain = audioCtx.createGain();
+      alertGain.gain.value = initialGain;
+      alertSource.connect(alertGain).connect(audioCtx.destination);
+    }catch(e){
+      console.warn('MediaElementSource failed, will use oscillator fallback', e);
+      alertSource = null; alertGain = null;
+    }
+
+    // ensure resume on user interaction
+    if(audioCtx.state === 'suspended'){
+      const resume = ()=>{ audioCtx.resume().catch(()=>{}); document.removeEventListener('click', resume); };
+      document.addEventListener('click', resume, { once: true });
+    }
+  }catch(e){
+    console.warn('WebAudio setup failed', e);
+    audioCtx = null; alertSource = null; alertGain = null;
+  }
+}
+
+function enableAudioForUser(){
+  // call this from a user gesture (button click) to allow autoplay/resume
+  try{
+    setupAlertAudio();
+    if(audioCtx){ audioCtx.resume().catch(()=>{}); }
+    // play a very short silent sound to unlock audio
+    alertAudio.volume = 0.0001;
+    alertAudio.play().then(()=>{
+      alertAudio.pause(); alertAudio.currentTime = 0; alertAudio.volume = 1.0;
+      audioEnabled = true; toast('เปิดเสียงเรียบร้อยแล้ว','success');
+    }).catch(err=>{
+      console.warn('unlock play failed', err);
+      // try oscillator as a last resort
+      try{
+        if(!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        oscillatorNode = audioCtx.createOscillator();
+        const g = audioCtx.createGain(); g.gain.value = 0.0001; // almost silent pulse to unlock
+        oscillatorNode.connect(g).connect(audioCtx.destination);
+        oscillatorNode.start(); setTimeout(()=>{ oscillatorNode.stop(); oscillatorNode.disconnect(); oscillatorNode=null; }, 100);
+        audioEnabled = true; toast('เปิดเสียงเรียบร้อยแล้ว','success');
+      }catch(e){ console.warn('oscillator unlock failed', e); toast('ไม่สามารถเปิดเสียงอัตโนมัติได้ โปรดคลิกที่หน้าเพื่ออนุญาตเสียง', 'error'); }
+    });
+  }catch(e){ console.warn('enableAudioForUser failed', e); toast('ไม่สามารถเปิดเสียงได้', 'error'); }
+}
+
+function setAlertGain(value){
+  initialGain = Number(value) || 1.0;
+  try{ if(alertGain) alertGain.gain.value = initialGain; }catch(e){}
+}
+
+function startOscillatorFallback(){
+  try{
+    if(!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    if(oscillatorNode) return; // already running
+    oscillatorNode = audioCtx.createOscillator();
+    const g = audioCtx.createGain();
+    g.gain.value = 0.1; // moderate volume fallback
+    oscillatorNode.type = 'sine';
+    oscillatorNode.frequency.value = 880; // high-pitched alert-like tone
+    oscillatorNode.connect(g).connect(audioCtx.destination);
+    oscillatorNode.start();
+  }catch(e){ console.warn('startOscillatorFallback failed', e); }
+}
+
+function stopOscillatorFallback(){
+  try{ if(oscillatorNode){ oscillatorNode.stop(); oscillatorNode.disconnect(); oscillatorNode=null; } }catch(e){}
+}
+
+function playAlertSound(){
+  try{
+    if(!audioEnabled){
+      // try to auto-enable by prompting user visually
+      console.warn('audio not enabled; calling enableAudioForUser automatically');
+      // show a temporary prompt (non-blocking)
+      toast('คลิกที่หน้าเพื่ออนุญาตเสียงแจ้งเตือน (required)', 'info');
+      return;
+    }
+    setupAlertAudio();
+    if(audioCtx && audioCtx.state === 'suspended') audioCtx.resume().catch(()=>{});
+    if(alertSource){
+      alertGain && (alertGain.gain.value = initialGain);
+      alertAudio.volume = 1.0;
+      alertAudio.play().catch(err=>{ console.warn('alertAudio play failed, starting oscillator fallback', err); startOscillatorFallback(); });
+    } else {
+      // media element source not available -> oscillator fallback
+      startOscillatorFallback();
+    }
+  }catch(e){ console.warn('playAlertSound failed', e); }
+}
+function stopAlertSound(){
+  try{
+    if(alertAudio){ alertAudio.pause(); alertAudio.currentTime = 0; }
+    stopOscillatorFallback();
+  }catch(e){}
+}
+
+function showPendingModal(pendingReports){
+  removePendingModal();
+  if(!pendingReports || !pendingReports.length) return;
+  const root = document.getElementById('modalRoot');
+  const overlay = document.createElement('div');
+  overlay.id = 'pendingAlertModal';
+  overlay.className = 'fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4';
+  overlay.innerHTML = `
+    <div class="bg-white rounded-xl p-4 max-w-xl w-full shadow-lg">
+      <div class="flex items-start gap-3">
+        <div class="w-12 h-12 flex items-center justify-center rounded-xl bg-red-600 text-white font-bold">!</div>
+        <div class="flex-1">
+          <h3 class="font-bold text-lg">มีเหตุฉุกเฉินรอดำเนินการ (${pendingReports.length})</h3>
+          <p class="text-sm text-gray-600 mt-1">โปรดตรวจสอบและตอบกลับโดยด่วน</p>
+          <div class="mt-3 space-y-2" style="max-height:220px; overflow:auto;">
+            ${pendingReports.map(r=>`<div class="p-2 border rounded-md bg-gray-50">
+              <div class="font-semibold">${r.name||'ไม่ทราบชื่อ'}</div>
+              <div class="text-xs text-gray-600">${r.incident_type||''} • ${r.phone||''}</div>
+              <div class="text-xs text-gray-500 mt-1">${r.location_note||''}</div>
+              <div class="text-xs text-gray-400">${r.created_at? new Date(r.created_at).toLocaleString('th-TH') : ''}</div>
+              <div class="text-right mt-2"><button class="open-map-btn underline text-blue-600 text-sm" data-lat="${r.latitude||0}" data-lng="${r.longitude||0}">ดูแผนที่</button></div>
+            </div>`).join('')}
+          </div>
+        </div>
+      </div>
+      <div class="mt-4 text-right">
+        <button id="dismissAlertBtn" class="px-3 py-2 rounded-md bg-gray-100 mr-2">ปิดเสียง</button>
+        <button id="closePendingModalBtn" class="px-3 py-2 rounded-md bg-red-600 text-white">ปิดหน้าต่าง</button>
+      </div>
+    </div>
+  `;
+  root.appendChild(overlay);
+  overlay.querySelectorAll('.open-map-btn').forEach(btn=>{
+    btn.addEventListener('click', ()=>{ const lat=btn.dataset.lat; const lng=btn.dataset.lng; window.open(`https://www.google.com/maps?q=${lat},${lng}`,'_blank'); });
+  });
+  document.getElementById('dismissAlertBtn').addEventListener('click', ()=>{ stopAlertSound(); });
+  document.getElementById('closePendingModalBtn').addEventListener('click', ()=>{ removePendingModal(); stopAlertSound(); });
+}
+function removePendingModal(){ const ex = document.getElementById('pendingAlertModal'); if(ex) ex.remove(); }
+
 // --- geolocation state ---
 let currentLocation = null;
 
@@ -185,24 +346,12 @@ if(manualPlaceBtn) manualPlaceBtn.addEventListener('click', ()=>{
 
 // --- CRUD helpers ---
 async function createReport(payload){
-  // improved error handling: return full response and throw with helpful message
   try{
     const resp = await supabase.from('reports').insert(payload).select();
-    // Supabase may return data as array; check for error in resp
-    if(resp.error) {
-      console.error('createReport error (resp.error):', resp.error);
-      throw resp.error;
-    }
+    if(resp.error){ console.error('createReport error (resp.error):', resp.error); throw resp.error; }
     const data = resp.data || resp;
     return Array.isArray(data) && data.length ? data[0] : data;
-  }catch(e){
-    console.error('createReport exception:', e);
-    // normalize error object
-    const msg = e?.message || (e && typeof e === 'object' ? JSON.stringify(e) : String(e));
-    const err = new Error(msg);
-    err.raw = e;
-    throw err;
-  }
+  }catch(e){ console.error('createReport exception:', e); const msg = e?.message || JSON.stringify(e); const err = new Error(msg); err.raw = e; throw err; }
 }
 async function fetchReports({ phone=null }={}){
   let q = supabase.from('reports').select('*').order('created_at',{ascending:false});
@@ -233,12 +382,7 @@ if(emergencyForm) emergencyForm.addEventListener('submit', async (e)=>{
     console.log('createReport response:', resp);
     emergencyForm.reset(); currentLocation = null; document.getElementById('locationInfo').classList.add('hidden');
     toast('แจ้งเหตุเรียบร้อยแล้ว','success');
-  }catch(err){
-    console.error('submit error:', err, err?.raw || 'no raw');
-    // show a more helpful message to the user while avoiding sensitive internals
-    const short = err?.message || (err?.raw && err.raw.message) || 'เกิดข้อผิดพลาดขณะส่งข้อมูล';
-    toast('ไม่สามารถส่งข้อมูลได้: ' + short, 'error');
-  }
+  }catch(err){ console.error('submit error:', err, err?.raw || 'no raw'); const short = err?.message || 'เกิดข้อผิดพลาดขณะส่งข้อมูล'; toast('ไม่สามารถส่งข้อมูลได้: ' + short, 'error'); }
 });
 
 // --- tracking ---
@@ -292,7 +436,8 @@ if(loginForm) loginForm.addEventListener('submit', async (e)=>{
   if(error) { toast('เข้าสู่ระบบไม่สำเร็จ','error'); return; }
   document.getElementById('loginPage').classList.add('hidden');
   document.getElementById('adminDashboard').classList.remove('hidden');
-  loadAndRenderReports();
+  await loadAndRenderReports();
+  startRealtimeIntegration();
   toast('เข้าสู่ระบบสำเร็จ','success');
 });
 
@@ -301,18 +446,123 @@ const logoutBtn = document.getElementById('logoutBtn');
 if(logoutBtn) logoutBtn.addEventListener('click', async ()=>{
   document.getElementById('adminDashboard').classList.add('hidden');
   document.getElementById('reportCard').classList.remove('hidden');
-  try{ await supabase.removeAllChannels(); }catch(e){}
+  try{ await unsubscribeReportsRealtime(); }catch(e){}
   toast('ออกจากระบบแล้ว','success');
 });
+
+// enable sound button (must be user gesture)
+const enableSoundBtn = document.getElementById('enableSoundBtn');
+if(enableSoundBtn) enableSoundBtn.addEventListener('click', ()=>{ enableAudioForUser(); });
+
+// --- Realtime subscriptions (admin) ---
+let reportsChannel = null;
+
+function subscribeReportsRealtime(onEvent){
+  if(reportsChannel) return reportsChannel;
+  reportsChannel = supabase
+    .channel('public:reports')
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'reports' }, payload => {
+      try{ onEvent && onEvent(payload); }catch(e){ console.error('realtime handler', e); }
+    })
+    .subscribe();
+  return reportsChannel;
+}
+
+async function unsubscribeReportsRealtime(){
+  if(!reportsChannel) return;
+  try{ await supabase.removeChannel(reportsChannel); }catch(e){ console.warn('removeChannel failed', e); }
+  reportsChannel = null;
+}
+
+function prependOrUpdateReportInList(row){
+  try{
+    const listEl = document.getElementById('reportsList'); if(!listEl) return;
+    const existing = listEl.querySelector(`[data-id=report-${row.id}]`);
+    const date = row.created_at ? new Date(row.created_at).toLocaleString('th-TH') : '';
+    const html = `
+      <div class="p-3 rounded-xl border flex justify-between items-start bg-white" data-id="report-${row.id}">
+        <div>
+          <div class="font-bold">${row.name||'ไม่ทราบชื่อ'}</div>
+          <div class="text-sm text-gray-600">📞 ${row.phone || '-'}</div>
+          <div class="text-sm text-gray-700 mt-1">${row.incident_type || '-'}</div>
+          <div class="text-xs text-gray-500 mt-2">${date}</div>
+          <div class="mt-2 text-sm text-gray-600">${row.location_note || '-'}</div>
+        </div>
+        <div class="flex flex-col items-end gap-2">
+          <select onchange="handleChangeStatus(${row.id}, this.value)" class="px-2 py-1 rounded-lg border">
+            <option ${row.status==='รอดำเนินการ'? 'selected' : ''}>รอดำเนินการ</option>
+            <option ${row.status==='กำลังออกไป'? 'selected' : ''}>กำลังออกไป</option>
+            <option ${row.status==='เสร็จสิ้น'? 'selected' : ''}>เสร็จสิ้น</option>
+          </select>
+          <button onclick="window.open('https://www.google.com/maps?q=${row.latitude||0},${row.longitude||0}','_blank')" class="text-sm underline">ดูพิกัด</button>
+        </div>
+      </div>`;
+    if(existing){
+      existing.outerHTML = html;
+      // re-select element
+      const sel = listEl.querySelector(`[data-id=report-${row.id}]`);
+      if(sel){ sel.classList.add('pulse-highlight'); setTimeout(()=>sel.classList.remove('pulse-highlight'), 2200); }
+    } else {
+      listEl.insertAdjacentHTML('afterbegin', html);
+      const sel = listEl.querySelector(`[data-id=report-${row.id}]`);
+      if(sel){ sel.classList.add('pulse-highlight'); setTimeout(()=>sel.classList.remove('pulse-highlight'), 2200); sel.scrollIntoView({behavior:'smooth', block:'start'}); }
+    }
+  }catch(e){ console.error('prependOrUpdateReportInList', e); }
+}
+
+function startRealtimeIntegration(){
+  subscribeReportsRealtime(async payload => {
+    try{
+      const evt = (payload.eventType || payload.event || '').toUpperCase();
+      const newRow = payload.new || null; const oldRow = payload.old || null;
+      if(evt === 'INSERT' && newRow){
+        prependOrUpdateReportInList(newRow);
+        // urgent: if pending, play sound & open modal
+        if(newRow.status === 'รอดำเนินการ'){
+          playAlertSound();
+          const reports = await fetchReports();
+          const pending = reports.filter(r=>r.status==='รอดำเนินการ');
+          showPendingModal(pending);
+        }
+        toast('มีการแจ้งเหตุใหม่', 'info');
+      } else if(evt === 'UPDATE' && newRow){
+        prependOrUpdateReportInList(newRow);
+        // if became pending
+        if(oldRow && oldRow.status !== newRow.status && newRow.status === 'รอดำเนินการ'){
+          playAlertSound();
+          const reports = await fetchReports();
+          const pending = reports.filter(r=>r.status==='รอดำเนินการ');
+          showPendingModal(pending);
+        }
+        // if pending count went to zero, stop sound
+        if(oldRow && oldRow.status === 'รอดำเนินการ' && newRow.status !== 'รอดำเนินการ'){
+          const reports = await fetchReports();
+          if(!reports.some(r=>r.status==='รอดำเนินการ')){ stopAlertSound(); removePendingModal(); }
+        }
+        if(oldRow && oldRow.status !== newRow.status){ toast('มีการอัปเดตสถานะ', 'info'); }
+      } else if(evt === 'DELETE' && oldRow){
+        const listEl = document.getElementById('reportsList'); const el = listEl.querySelector(`[data-id=report-${oldRow.id}]`); if(el) el.remove();
+        const reports = await fetchReports(); if(!reports.some(r=>r.status==='รอดำเนินการ')){ stopAlertSound(); removePendingModal(); }
+        toast('มีรายการถูกลบ', 'info');
+      }
+    }catch(e){ console.error('realtime payload error', e); }
+  });
+}
 
 // --- Reports rendering for admin ---
 async function loadAndRenderReports(){
   const list = document.getElementById('reportsList'); list.innerHTML = '<div class="text-gray-500">กำลังโหลด...</div>';
-  const reports = await fetchReports();
+  let reports = await fetchReports();
   if(!reports.length) { list.innerHTML = '<div class="text-gray-600">ไม่มีรายการแจ้งเหตุ</div>'; return; }
+  // sort: รอดำเนินการ ขึ้นก่อน, จากนั้นเรียงตามเวลาล่าสุด
+  reports = reports.sort((a,b)=>{
+    if(a.status === 'รอดำเนินการ' && b.status !== 'รอดำเนินการ') return -1;
+    if(a.status !== 'รอดำเนินการ' && b.status === 'รอดำเนินการ') return 1;
+    return new Date(b.created_at) - new Date(a.created_at);
+  });
   list.innerHTML = reports.map(r=>{
     const date = r.created_at ? new Date(r.created_at).toLocaleString('th-TH') : '';
-    return `<div class="p-3 rounded-xl border flex justify-between items-start bg-white">
+    return `<div class="p-3 rounded-xl border flex justify-between items-start bg-white" data-id="report-${r.id}">
       <div>
         <div class="font-bold">${r.name||'ไม่ทราบชื่อ'}</div>
         <div class="text-sm text-gray-600">📞 ${r.phone || '-'}</div>
@@ -330,10 +580,14 @@ async function loadAndRenderReports(){
       </div>
     </div>`;
   }).join('');
+
+  // if any pending -> show modal + play sound
+  const pending = reports.filter(r=>r.status==='รอดำเนินการ');
+  if(pending.length){ playAlertSound(); showPendingModal(pending); } else { stopAlertSound(); removePendingModal(); }
 }
 
 async function handleChangeStatus(id, value){
-  try{ await updateReportStatus(id, value); toast('อัปเดตสถานะเรียบร้อย','success'); loadAndRenderReports(); }catch(e){ console.error(e); toast('อัปเดตไม่สำเร็จ','error'); }
+  try{ await updateReportStatus(id, value); toast('อัปเดตสถานะเรียบร้อย','success'); await loadAndRenderReports(); }catch(e){ console.error(e); toast('อัปเดตไม่สำเร็จ','error'); }
 }
 
 // initial visible
