@@ -58,12 +58,13 @@
         <div>
           <label for="inputPhone" class="block text-sm font-medium text-gray-700">เบอร์โทรศัพท์ <span class="text-red-600">*</span></label>
           <input id="inputPhone" name="phone" type="tel" inputmode="tel" pattern="[0-9+()\s-]{6,}" required class="mt-1 block w-full rounded-2xl border px-4 py-3 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#1E3A8A]" placeholder="08x-xxx-xxxx">
+          <p class="text-red-600 text-sm mt-1 font-bold">** โปรดกรอกเบอร์โทรให้ถูกต้อง เพื่อให้เจ้าหน้าที่ติดต่อกลับได้ทันที **</p>
         </div>
 
         <div>
-          <label for="inputUrgency" class="block text-sm font-medium text-gray-700">ระดความเร่งด่วน <span class="text-red-600">*</span></label>
+          <label for="inputUrgency" class="block text-sm font-medium text-gray-700">ระดับความเร่งด่วน <span class="text-red-600">*</span></label>
           <select id="inputUrgency" name="urgency" required class="mt-1 block w-full rounded-2xl border px-4 py-3 focus:outline-none focus:ring-2 focus:ring-[#1E3A8A]">
-            <option value="">-- เลือกความเร่งด่วน --</option>
+            <option value="">-- เลือกระดับความเร่งด่วน --</option>
             <option>สูงมาก (วิกฤต)</option>
             <option>สูง</option>
             <option>ปานกลาง</option>
@@ -515,6 +516,7 @@ function prependOrUpdateReportInList(row){
         <div>
           <div class="font-bold">${row.name||'ไม่ทราบชื่อ'}</div>
           <div class="text-sm text-gray-600">📞 ${row.phone || '-'}</div>
+          <div class="text-sm font-bold text-red-700">ความเร่งด่วน: ${row.urgency||'-'}</div>
           <div class="text-sm text-gray-700 mt-1">${row.incident_type || '-'}</div>
           <div class="text-xs text-gray-500 mt-2">${date}</div>
           <div class="mt-2 text-sm text-gray-600">${row.location_note || '-'}</div>
@@ -527,7 +529,7 @@ function prependOrUpdateReportInList(row){
             <option ${row.status==='เสร็จสิ้น'? 'selected' : ''}>เสร็จสิ้น</option>
           </select>
           <button onclick="window.open('https://www.google.com/maps?q=${row.latitude||0},${row.longitude||0}','_blank')" class="text-sm underline">ดูพิกัด</button>
-          <button onclick="window.location.href='tel:${r.phone||''}'" class="px-3 py-1 rounded-xl bg-green-600 text-white text-sm shadow">โทร</button>
+          <button onclick="window.location.href='tel:${row.phone||''}'" class="px-3 py-1 rounded-xl bg-green-600 text-white text-sm shadow">โทร</button>
         </div>
       </div>`;
     if(existing){
@@ -587,17 +589,34 @@ async function loadAndRenderReports(){
   const list = document.getElementById('reportsList'); list.innerHTML = '<div class="text-gray-500">กำลังโหลด...</div>';
   let reports = await fetchReports();
   if(!reports.length) { list.innerHTML = '<div class="text-gray-600">ไม่มีรายการแจ้งเหตุ</div>'; return; }
-  // sort: เรียงตามสถานะ: รอดำเนินการ → กำลังออกไป → เสร็จสิ้น
-  const statusOrder = { 'รอดำเนินการ': 1, 'รับทราบ': 2, 'กำลังออกไป': 3, 'เสร็จสิ้น': 4 };
+  // sort รายการ: ความเร่งด่วน → ประเภทเหตุการณ์ → ชื่อ → เบอร์โทร → รายละเอียดสถานที่ → วันเวลา
   reports = reports.sort((a,b)=>{
-    const sa = statusOrder[a.status] || 99;
-    const sb = statusOrder[b.status] || 99;
+    const urgencyOrder = {
+      'สูงมาก (วิกฤต)': 1,
+      'สูง': 2,
+      'ปานกลาง': 3,
+      'ต่ำ': 4
+    };
+    const statusPriority = {
+      'รอดำเนินการ': 1,
+      'รับทราบ': 2,
+      'กำลังออกไป': 3,
+      'เสร็จสิ้น': 4
+    };
+
+    const sa = statusPriority[a.status] || 99;
+    const sb = statusPriority[b.status] || 99;
     if(sa !== sb) return sa - sb;
-    return new Date(b.created_at) - new Date(a.created_at);
-  });((a,b)=>{
-    if(a.status === 'รอดำเนินการ' && b.status !== 'รอดำเนินการ') return -1;
-    if(a.status !== 'รอดำเนินการ' && b.status === 'รอดำเนินการ') return 1;
-    return new Date(b.created_at) - new Date(a.created_at);
+
+    const ua = urgencyOrder[a.urgency] || 99;
+    const ub = urgencyOrder[b.urgency] || 99;
+    if(ua !== ub) return ua - ub;
+
+    if(a.incident_type !== b.incident_type) return (a.incident_type||'').localeCompare(b.incident_type||'');
+    if(a.name !== b.name) return (a.name||'').localeCompare(b.name||'');
+    if(a.phone !== b.phone) return (a.phone||'').localeCompare(b.phone||'');
+    if(a.location_note !== b.location_note) return (a.location_note||'').localeCompare(b.location_note||'');
+    return new Date(a.created_at) - new Date(b.created_at);
   });
   list.innerHTML = reports.map(r=>{
     const date = r.created_at ? new Date(r.created_at).toLocaleString('th-TH') : '';
@@ -605,6 +624,7 @@ async function loadAndRenderReports(){
       <div>
         <div class="font-bold">${r.name||'ไม่ทราบชื่อ'}</div>
         <div class="text-sm text-gray-600">📞 ${r.phone || '-'}</div>
+        <div class="text-sm font-bold text-red-700">ความเร่งด่วน: ${r.urgency||'-'}</div>
         <div class="text-sm text-gray-700 mt-1">${r.incident_type || '-'}</div>
         <div class="text-xs text-gray-500 mt-2">${date}</div>
         <div class="mt-2 text-sm text-gray-600">${r.location_note || '-'}</div>
