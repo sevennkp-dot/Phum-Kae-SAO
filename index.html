@@ -1,4 +1,3 @@
-<!-- source: /mnt/data/4.txt -->
 <!doctype html>
 <html lang="th">
 <head>
@@ -212,7 +211,7 @@ function setupAlertAudio(){
     }
   }catch(e){
     console.warn('WebAudio setup failed', e);
-    audioCtx = null; alertSource = null; alertGain = null;
+    audioCtx = null; alertSource = null;
   }
 }
 
@@ -456,10 +455,11 @@ if(loginForm) loginForm.addEventListener('submit', async (e)=>{
 // logout
 const logoutBtn = document.getElementById('logoutBtn');
 if(logoutBtn) logoutBtn.addEventListener('click', async ()=>{
+  await supabase.auth.signOut();
   document.getElementById('adminDashboard').classList.add('hidden');
   document.getElementById('reportCard').classList.remove('hidden');
   try{ await unsubscribeReportsRealtime(); }catch(e){}
-  toast('ออกจากระบบแล้ว','success');
+  toast('ออกจากระบบแล้ว','success','success');
 });
 
 // enable sound button (must be user gesture)
