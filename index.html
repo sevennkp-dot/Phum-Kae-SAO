@@ -1,4 +1,4 @@
-<!-- Source file: sandbox:/mnt/data/3ok.txt -->
+<!-- source: /mnt/data/3ok.txt -->
 <!doctype html>
 <html lang="th">
 <head>
@@ -19,9 +19,9 @@
     .modal { background:white; padding:18px; border-radius:10px; max-width:420px; width:92%; box-shadow:0 8px 24px rgba(0,0,0,0.2); }
   </style>
 </head>
-<body class="h-screen overflow-hidden bg-gradient-to-br from-red-50 to-orange-50">
+<body class="min-h-full bg-gradient-to-br from-red-50 to-orange-50">
 
-<main class="h-screen overflow-y-auto container mx-auto px-4 py-6">
+<main class="container mx-auto px-4 py-6">
 
   <!-- Login Page -->
   <div id="loginPage" class="max-w-sm mx-auto mb-8 hidden">
@@ -361,21 +361,65 @@ async function handleChangeStatus(id,value){ try{ await updateReportStatus(id,va
     const reports = await fetchReports(); if (!reports.some(r=>r.status==='รอดำเนินการ')) stopAlertSound(); } catch(e){ showToast('อัปเดตไม่สำเร็จ','error'); }}
 
 // --- start realtime integration (play sound + modal for new pending) ---
+function prependOrUpdateReportInList(row){
+  try{
+    const listEl = document.getElementById('reportsList'); if (!listEl) return;
+    const existing = listEl.querySelector(`[data-id=report-${row.id}]`);
+    const lat = row.latitude ?? 0; const lng = row.longitude ?? 0;
+    const highlight = row.status==='รอดำเนินการ' ? 'bg-yellow-100 border-yellow-400' : '';
+    const html = `
+      <div class="border p-4 rounded ${highlight}" data-id="report-${row.id}">
+        <div class="flex justify-between">
+          <div>
+            <h3 class="font-bold">${row.name||''}</h3>
+            <p>📞 ${row.phone||''}</p>
+            <p>ประเภท: ${row.incident_type||''}</p>
+            <p>สถานที่: ${row.location_note||'-'}</p>
+            <p class="text-xs text-gray-500">${row.created_at? new Date(row.created_at).toLocaleString('th-TH') : ''}</p>
+            <button onclick="openGoogleMaps(${lat},${lng})" class="text-blue-600 underline">ดูตำแหน่ง</button>
+          </div>
+          <div>
+            <select onchange="handleChangeStatus(${row.id}, this.value)" class="border rounded px-2 py-1">
+              <option ${row.status==='รอดำเนินการ'?'selected':''}>รอดำเนินการ</option>
+              <option ${row.status==='กำลังออกไป'?'selected':''}>กำลังออกไป</option>
+              <option ${row.status==='เสร็จสิ้น'?'selected':''}>เสร็จสิ้น</option>
+            </select>
+          </div>
+        </div>
+      </div>`;
+    if (existing){ existing.outerHTML = html; }
+    else { listEl.insertAdjacentHTML('afterbegin', html); }
+  }catch(e){ console.error('prependOrUpdateReportInList', e); }
+}
+
 function startRealtimeIntegration(){
   subscribeReportsRealtime(async payload=>{
-    console.log('realtime',payload);
-    const evt = (payload.eventType||payload.event||'').toUpperCase();
-    const newRow = payload.new||null; const oldRow = payload.old||null;
-    const becamePending = (evt==='INSERT' && newRow && newRow.status==='รอดำเนินการ') || (evt==='UPDATE' && newRow && oldRow && newRow.status==='รอดำเนินการ' && oldRow.status!=='รอดำเนินการ');
-    if (becamePending){
-      // show a quick modal for the new row (full pending list handled elsewhere)
-      showModal(`มีเหตุใหม่จาก: ${newRow.name||'ไม่ทราบชื่อ'}`);
-      // then sync the persistent modal + sound
-      await checkPendingAndAlert();
-    }
-    if (evt==='UPDATE' && oldRow && oldRow.status==='รอดำเนินการ' && newRow && newRow.status!=='รอดำเนินการ'){
-      const reports = await fetchReports(); if (!reports.some(r=>r.status==='รอดำเนินการ')) stopAlertSound(); }
-    await loadAndRenderReports();
+    try{
+      console.log('realtime',payload);
+      const evt = (payload.eventType||payload.event||'').toUpperCase();
+      const newRow = payload.new||null; const oldRow = payload.old||null;
+      const becamePending = (evt==='INSERT' && newRow && newRow.status==='รอดำเนินการ') || (evt==='UPDATE' && newRow && oldRow && newRow.status==='รอดำเนินการ' && oldRow.status!=='รอดำเนินการ');
+      if (evt==='INSERT' && newRow){
+        // immediately prepend to list for snappy UI
+        prependOrUpdateReportInList(newRow);
+        // quick modal for new pending (if applicable)
+        if (newRow.status==='รอดำเนินการ') showModal(`มีเหตุใหม่จาก: ${newRow.name||'ไม่ทราบชื่อ'}`);
+        await checkPendingAndAlert();
+      } else if (evt==='UPDATE' && newRow){
+        // update existing row in-place for faster feedback
+        prependOrUpdateReportInList(newRow);
+        if (becamePending){
+          showModal(`มีเหตุใหม่จาก: ${newRow.name||'ไม่ทราบชื่อ'}`);
+          await checkPendingAndAlert();
+        }
+        if (oldRow && oldRow.status==='รอดำเนินการ' && newRow.status!=='รอดำเนินการ'){
+          const reports = await fetchReports(); if (!reports.some(r=>r.status==='รอดำเนินการ')) stopAlertSound();
+        }
+      }
+      // keep the full list synced in background (debounced)
+      if (typeof window.__loadReportsDebounce === 'number') clearTimeout(window.__loadReportsDebounce);
+      window.__loadReportsDebounce = setTimeout(()=>{ loadAndRenderReports(); }, 500);
+    }catch(e){ console.error('startRealtimeIntegration handler', e); }
   });
 }
 
