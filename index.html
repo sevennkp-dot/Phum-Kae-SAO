@@ -455,12 +455,17 @@ if(loginForm) loginForm.addEventListener('submit', async (e)=>{
 // logout
 const logoutBtn = document.getElementById('logoutBtn');
 if(logoutBtn) logoutBtn.addEventListener('click', async ()=>{
-  await supabase.auth.signOut();
+  try{
+    await supabase.auth.signOut();
+  }catch(e){ console.warn('signOut failed', e); }
+  try{ await unsubscribeReportsRealtime(); }catch(e){}
   document.getElementById('adminDashboard').classList.add('hidden');
   document.getElementById('reportCard').classList.remove('hidden');
-  try{ await unsubscribeReportsRealtime(); }catch(e){}
-  toast('ออกจากระบบแล้ว','success','success');
+  document.getElementById('loginPage').classList.remove('hidden');
+  toast('ออกจากระบบแล้ว','success');
+  setTimeout(()=>{ try{ location.reload(); }catch(e){} }, 500);
 });
+
 
 // enable sound button (must be user gesture)
 
