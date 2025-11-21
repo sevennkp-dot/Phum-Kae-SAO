@@ -1,4 +1,4 @@
-<!-- source: /mnt/data/5.txt -->
+<!-- original file: /mnt/data/finis.txt -->
 <!doctype html>
 <html lang="th">
 <head>
@@ -58,6 +58,17 @@
         <div>
           <label for="inputPhone" class="block text-sm font-medium text-gray-700">เบอร์โทรศัพท์ <span class="text-red-600">*</span></label>
           <input id="inputPhone" name="phone" type="tel" inputmode="tel" pattern="[0-9+()\s-]{6,}" required class="mt-1 block w-full rounded-2xl border px-4 py-3 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#1E3A8A]" placeholder="08x-xxx-xxxx">
+        </div>
+
+        <div>
+          <label for="inputUrgency" class="block text-sm font-medium text-gray-700">ระดความเร่งด่วน <span class="text-red-600">*</span></label>
+          <select id="inputUrgency" name="urgency" required class="mt-1 block w-full rounded-2xl border px-4 py-3 focus:outline-none focus:ring-2 focus:ring-[#1E3A8A]">
+            <option value="">-- เลือกความเร่งด่วน --</option>
+            <option>สูงมาก (วิกฤต)</option>
+            <option>สูง</option>
+            <option>ปานกลาง</option>
+            <option>ต่ำ</option>
+          </select>
         </div>
 
         <div>
