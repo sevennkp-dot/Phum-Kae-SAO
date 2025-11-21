@@ -396,12 +396,13 @@ if(emergencyForm) emergencyForm.addEventListener('submit', async (e)=>{
   e.preventDefault();
   const name = (document.getElementById('inputName')||{}).value?.trim();
   const phone = (document.getElementById('inputPhone')||{}).value?.trim();
+  const urgency = (document.getElementById('inputUrgency')||{}).value;
   const incident_type = (document.getElementById('inputType')||{}).value;
   const note = (document.getElementById('inputLocationNote')||{}).value?.trim() || '';
   if(!name || !phone || !incident_type) return toast('กรุณากรอกข้อมูลที่มีเครื่องหมาย * ให้ครบ','error');
   if(!currentLocation) return toast('กรุณาอนุญาตตำแหน่งก่อนส่งแจ้งเหตุ','error');
 
-  const payload = { name, phone, incident_type, location_note: note, latitude: currentLocation.latitude, longitude: currentLocation.longitude, status: 'รอดำเนินการ' };
+  const payload = { name, phone, urgency, incident_type, location_note: note, latitude: currentLocation.latitude, longitude: currentLocation.longitude, status: 'รอดำเนินการ' };
   try{
     const resp = await createReport(payload);
     console.log('createReport response:', resp);
