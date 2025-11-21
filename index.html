@@ -552,8 +552,14 @@ async function loadAndRenderReports(){
   const list = document.getElementById('reportsList'); list.innerHTML = '<div class="text-gray-500">กำลังโหลด...</div>';
   let reports = await fetchReports();
   if(!reports.length) { list.innerHTML = '<div class="text-gray-600">ไม่มีรายการแจ้งเหตุ</div>'; return; }
-  // sort: รอดำเนินการ ขึ้นก่อน, จากนั้นเรียงตามเวลาล่าสุด
+  // sort: เรียงตามสถานะ: รอดำเนินการ → กำลังออกไป → เสร็จสิ้น
+  const statusOrder = { 'รอดำเนินการ': 1, 'กำลังออกไป': 2, 'เสร็จสิ้น': 3 };
   reports = reports.sort((a,b)=>{
+    const sa = statusOrder[a.status] || 99;
+    const sb = statusOrder[b.status] || 99;
+    if(sa !== sb) return sa - sb;
+    return new Date(b.created_at) - new Date(a.created_at);
+  });((a,b)=>{
     if(a.status === 'รอดำเนินการ' && b.status !== 'รอดำเนินการ') return -1;
     if(a.status !== 'รอดำเนินการ' && b.status === 'รอดำเนินการ') return 1;
     return new Date(b.created_at) - new Date(a.created_at);
