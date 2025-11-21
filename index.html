@@ -1,3 +1,4 @@
+<!-- source: /mnt/data/4.txt -->
 <!doctype html>
 <html lang="th">
 <head>
@@ -154,6 +155,18 @@
 const supabaseUrl = "https://yoauscrafbucdahwlvmc.supabase.co";
 const supabaseKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlvYXVzY3JhZmJ1Y2RhaHdsdm1jIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjMzNzU4MzgsImV4cCI6MjA3ODk1MTgzOH0.GdoWeFsaEYEExSkqT92RiFqVHyKepjGV06ByeVmdDrQ";
 const supabase = window.supabase.createClient(supabaseUrl, supabaseKey);
+
+// --- persist login: auto-restore admin session ---
+supabase.auth.getSession().then(({ data }) => {
+  if(data?.session){
+    // auto-show admin dashboard
+    document.getElementById('loginPage').classList.add('hidden');
+    document.getElementById('reportCard').classList.add('hidden');
+    document.getElementById('adminDashboard').classList.remove('hidden');
+    loadAndRenderReports();
+    startRealtimeIntegration();
+  }
+});
 
 // --- small UI helpers ---
 function toast(message, type='info'){
@@ -478,7 +491,7 @@ function prependOrUpdateReportInList(row){
     const existing = listEl.querySelector(`[data-id=report-${row.id}]`);
     const date = row.created_at ? new Date(row.created_at).toLocaleString('th-TH') : '';
     const html = `
-      <div class="p-3 rounded-xl border flex justify-between items-start bg-white" data-id="report-${row.id}">
+      <div class="p-3 rounded-xl border flex justify-between items-start ${row.status==='รอดำเนินการ'?'bg-red-50 border-red-200':row.status==='รับทราบ'?'bg-orange-50 border-orange-200':row.status==='กำลังออกไป'?'bg-blue-50 border-blue-200':'bg-green-50 border-green-200'}" data-id="report-${row.id}">
         <div>
           <div class="font-bold">${row.name||'ไม่ทราบชื่อ'}</div>
           <div class="text-sm text-gray-600">📞 ${row.phone || '-'}</div>
@@ -489,6 +502,7 @@ function prependOrUpdateReportInList(row){
         <div class="flex flex-col items-end gap-2">
           <select onchange="handleChangeStatus(${row.id}, this.value)" class="px-2 py-1 rounded-lg border">
             <option ${row.status==='รอดำเนินการ'? 'selected' : ''}>รอดำเนินการ</option>
+            <option ${row.status==='รับทราบ'? 'selected' : ''}>รับทราบ</option>
             <option ${row.status==='กำลังออกไป'? 'selected' : ''}>กำลังออกไป</option>
             <option ${row.status==='เสร็จสิ้น'? 'selected' : ''}>เสร็จสิ้น</option>
           </select>
@@ -553,7 +567,7 @@ async function loadAndRenderReports(){
   let reports = await fetchReports();
   if(!reports.length) { list.innerHTML = '<div class="text-gray-600">ไม่มีรายการแจ้งเหตุ</div>'; return; }
   // sort: เรียงตามสถานะ: รอดำเนินการ → กำลังออกไป → เสร็จสิ้น
-  const statusOrder = { 'รอดำเนินการ': 1, 'กำลังออกไป': 2, 'เสร็จสิ้น': 3 };
+  const statusOrder = { 'รอดำเนินการ': 1, 'รับทราบ': 2, 'กำลังออกไป': 3, 'เสร็จสิ้น': 4 };
   reports = reports.sort((a,b)=>{
     const sa = statusOrder[a.status] || 99;
     const sb = statusOrder[b.status] || 99;
@@ -566,7 +580,7 @@ async function loadAndRenderReports(){
   });
   list.innerHTML = reports.map(r=>{
     const date = r.created_at ? new Date(r.created_at).toLocaleString('th-TH') : '';
-    return `<div class="p-3 rounded-xl border flex justify-between items-start bg-white" data-id="report-${r.id}">
+    return `<div class="p-3 rounded-xl border flex justify-between items-start ${r.status==='รอดำเนินการ'?'bg-red-50 border-red-200':r.status==='รับทราบ'?'bg-orange-50 border-orange-200':r.status==='กำลังออกไป'?'bg-blue-50 border-blue-200':'bg-green-50 border-green-200'}" data-id="report-${r.id}">
       <div>
         <div class="font-bold">${r.name||'ไม่ทราบชื่อ'}</div>
         <div class="text-sm text-gray-600">📞 ${r.phone || '-'}</div>
@@ -577,6 +591,7 @@ async function loadAndRenderReports(){
       <div class="flex flex-col items-end gap-2">
         <select onchange="handleChangeStatus(${r.id}, this.value)" class="px-2 py-1 rounded-lg border">
           <option ${r.status==='รอดำเนินการ'? 'selected' : ''}>รอดำเนินการ</option>
+          <option ${r.status==='รับทราบ'? 'selected' : ''}>รับทราบ</option>
           <option ${r.status==='กำลังออกไป'? 'selected' : ''}>กำลังออกไป</option>
           <option ${r.status==='เสร็จสิ้น'? 'selected' : ''}>เสร็จสิ้น</option>
         </select>
