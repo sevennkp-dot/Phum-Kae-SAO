@@ -185,8 +185,24 @@ if(manualPlaceBtn) manualPlaceBtn.addEventListener('click', ()=>{
 
 // --- CRUD helpers ---
 async function createReport(payload){
-  const { data, error } = await supabase.from('reports').insert(payload).select().single();
-  if(error) throw error; return data;
+  // improved error handling: return full response and throw with helpful message
+  try{
+    const resp = await supabase.from('reports').insert(payload).select();
+    // Supabase may return data as array; check for error in resp
+    if(resp.error) {
+      console.error('createReport error (resp.error):', resp.error);
+      throw resp.error;
+    }
+    const data = resp.data || resp;
+    return Array.isArray(data) && data.length ? data[0] : data;
+  }catch(e){
+    console.error('createReport exception:', e);
+    // normalize error object
+    const msg = e?.message || (e && typeof e === 'object' ? JSON.stringify(e) : String(e));
+    const err = new Error(msg);
+    err.raw = e;
+    throw err;
+  }
 }
 async function fetchReports({ phone=null }={}){
   let q = supabase.from('reports').select('*').order('created_at',{ascending:false});
@@ -213,10 +229,16 @@ if(emergencyForm) emergencyForm.addEventListener('submit', async (e)=>{
 
   const payload = { name, phone, incident_type, location_note: note, latitude: currentLocation.latitude, longitude: currentLocation.longitude, status: 'รอดำเนินการ' };
   try{
-    await createReport(payload);
+    const resp = await createReport(payload);
+    console.log('createReport response:', resp);
     emergencyForm.reset(); currentLocation = null; document.getElementById('locationInfo').classList.add('hidden');
     toast('แจ้งเหตุเรียบร้อยแล้ว','success');
-  }catch(err){ console.error(err); toast('ไม่สามารถส่งข้อมูลได้','error'); }
+  }catch(err){
+    console.error('submit error:', err, err?.raw || 'no raw');
+    // show a more helpful message to the user while avoiding sensitive internals
+    const short = err?.message || (err?.raw && err.raw.message) || 'เกิดข้อผิดพลาดขณะส่งข้อมูล';
+    toast('ไม่สามารถส่งข้อมูลได้: ' + short, 'error');
+  }
 });
 
 // --- tracking ---
