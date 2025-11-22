@@ -1,3 +1,4 @@
+<!-- Source: /mnt/data/finis.txt -->
 <!doctype html>
 <html lang="th">
 <head>
@@ -213,7 +214,7 @@ function toast(message, type='info'){
 
 // --- Alert sound + pending modal (urgent notifications) ---
 // Robust alert audio: crossOrigin, WebAudio amplification, explicit user enable button, and oscillator fallback
-const ALERT_SOUND_URL = 'https://actions.google.com/sounds/v1/emergency/ambulance_siren.ogg';
+const ALERT_SOUND_URL = 'https://yoauscrafbucdahwlvmc.supabase.co/storage/v1/object/sign/sound/ambulance.mp3?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV82YzU0ZjkzMi04YzdhLTQ2OGQtOTI3OC0wZGMyNjBlNGRlYWYiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJzb3VuZC9hbWJ1bGFuY2UubXAzIiwiaWF0IjoxNzYzODAwNzMyLCJleHAiOjQ5MTc0MDA3MzJ9.syIQrfITqbsKbTM8x9cef8_NDY5G7HRAlpRuiYpX1v0';
 const alertAudio = new Audio(ALERT_SOUND_URL);
 alertAudio.loop = true; alertAudio.preload = 'auto';
 alertAudio.crossOrigin = 'anonymous';
@@ -535,7 +536,7 @@ function prependOrUpdateReportInList(row){
     const existing = listEl.querySelector(`[data-id=report-${row.id}]`);
     const date = row.created_at ? new Date(row.created_at).toLocaleString('th-TH') : '';
     const html = `
-      <div class="p-3 rounded-2xl border flex justify-between items-start ${row.status==='รอดำเนินการ'?'bg-[#FDE68A] border-[#FDE68A]':row.status==='รับทราบ'?'bg-[#BFDBFE] border-[#BFDBFE]':row.status==='กำลังออกไป'?'bg-[#FECACA] border-[#FECACA]':'bg-[#BBF7D0] border-[#BBF7D0]'}" data-id="report-${row.id}">
+      <div class="p-3 rounded-2xl border flex justify-between items-start ${row.status==='รอดำเนินการ'? 'bg-[#FDE68A] border-[#FDE68A]':row.status==='รับทราบ'?'bg-[#BFDBFE] border-[#BFDBFE]':row.status==='กำลังออกไป'?'bg-[#FECACA] border-[#FECACA]':'bg-[#BBF7D0] border-[#BBF7D0]'}" data-id="report-${row.id}">
         <div>
           <div class="font-bold">${row.name||'ไม่ทราบชื่อ'}</div>
           <div class="text-sm text-gray-600">📞 ${row.phone || '-'}</div>
