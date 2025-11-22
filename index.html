@@ -697,8 +697,51 @@ if(confirmDownload){
     const start = document.getElementById('downloadStart').value;
     const end = document.getElementById('downloadEnd').value;
     if(!start || !end) return toast('กรุณาเลือกช่วงวันที่ให้ครบ','error');
-    // Placeholder download trigger
-    toast('กำลังดาวน์โหลดข้อมูล...','success');
+    // Generate CSV and trigger download
+    (async ()=>{
+      try{
+        const { data, error } = await supabase
+          .from('reports')
+          .select('*')
+          .gte('created_at', start + ' 00:00:00')
+          .lte('created_at', end + ' 23:59:59')
+          .order('created_at', { ascending: true });
+
+        if(error){ toast('ดึงข้อมูลล้มเหลว','error'); return; }
+        if(!data || !data.length){ toast('ไม่พบข้อมูลในช่วงวันดังกล่าว','error'); return; }
+
+        const csvRows = [];
+        csvRows.push(['ชื่อ','เบอร์โทร','ประเภทเหตุ','ความเร่งด่วน','รายละเอียดสถานที่','ละติจูด','ลองจิจูด','สถานะ','วันเวลา'].join(','));
+        data.forEach(r=>{
+          csvRows.push([
+            '"'+(r.name||'')+'"',
+            '"'+(r.phone||'')+'"',
+            '"'+(r.incident_type||'')+'"',
+            '"'+(r.urgency||'')+'"',
+            '"'+(r.location_note||'')+'"',
+            r.latitude||'',
+            r.longitude||'',
+            '"'+(r.status||'')+'"',
+            '"'+(r.created_at||'')+'"'
+          ].join(','));
+        });
+
+        const blob = new Blob([csvRows.join('\n')], { type:'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'reports_'+start+'_'+end+'.csv';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        toast('ดาวน์โหลดสำเร็จ','success');
+      }catch(e){
+        console.error(e);
+        toast('เกิดข้อผิดพลาดระหว่างดาวน์โหลด','error');
+      }
+    })();
+
     downloadModal.classList.add('hidden');
     downloadModal.classList.remove('flex');
   });
