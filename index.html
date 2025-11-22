@@ -147,7 +147,8 @@
       <div class="flex items-center justify-between mb-4">
         <h3 class="text-lg font-bold">แดชบอร์ด — รายการแจ้งเหตุ</h3>
         <div class="flex gap-2 ml-auto">
-  <input type="date" id="downloadDate" class="px-3 py-2 rounded-xl border" />
+  <input type="date" id="dateFrom" class="px-3 py-2 rounded-xl border" />
+  <input type="date" id="dateTo" class="px-3 py-2 rounded-xl border" />
   <button id="downloadReports" class="px-3 py-2 rounded-xl bg-blue-600 text-white">ดาวน์โหลดข้อมูล</button>
           
           
@@ -651,6 +652,31 @@ async function loadAndRenderReports(){
 
 async function handleChangeStatus(id, value){
   try{ await updateReportStatus(id, value); toast('อัปเดตสถานะเรียบร้อย','success'); await loadAndRenderReports(); }catch(e){ console.error(e); toast('อัปเดตไม่สำเร็จ','error'); }
+}
+
+// ปุ่มดาวน์โหลดข้อมูล (CSV) — เลือกช่วงวันที่ (จาก–ถึง)
+const downloadBtn = document.getElementById('downloadReports');
+if(downloadBtn){
+  downloadBtn.addEventListener('click', async () => {
+    const from = document.getElementById('dateFrom').value;
+    const to = document.getElementById('dateTo').value;
+    let reports = await fetchReports();
+    if(from){ reports = reports.filter(r => new Date(r.created_at) >= new Date(from)); }
+    if(to){ const end = new Date(to); end.setDate(end.getDate()+1); reports = reports.filter(r => new Date(r.created_at) < end); }
+    if(!reports.length){ toast('ไม่มีข้อมูลในช่วงวันที่ที่เลือก','error'); return; }
+    const header = ['ชื่อ','เบอร์โทร','ความเร่งด่วน','ประเภทเหตุการณ์','รายละเอียดสถานที่','สถานะ','ละติจูด','ลองจิจูด','วันที่แจ้ง'];
+    const rows = reports.map(r => [r.name||'', r.phone||'', r.urgency||'', r.incident_type||'', r.location_note||'', r.status||'', r.latitude||'', r.longitude||'', r.created_at||'']);
+    let csv = header.join(',') + '
+';
+    rows.forEach(row => { csv += row.map(v => `"${(v+'').replace(/"/g,'')}` ).join(',') + '
+'; });
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = 'reports.csv';
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  });
 }
 
 // initial visible
