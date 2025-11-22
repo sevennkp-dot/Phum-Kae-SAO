@@ -1,4 +1,3 @@
-<!-- original file: /mnt/data/finis.txt -->
 <!doctype html>
 <html lang="th">
 <head>
@@ -148,7 +147,9 @@
       <div class="flex items-center justify-between mb-4">
         <h3 class="text-lg font-bold">แดชบอร์ด — รายการแจ้งเหตุ</h3>
         <div class="flex gap-2 ml-auto">
-          <button id="refreshReports" class="px-3 py-2 rounded-xl bg-gray-100">รีเฟรช</button>
+  <input type="date" id="downloadDate" class="px-3 py-2 rounded-xl border" />
+  <button id="downloadReports" class="px-3 py-2 rounded-xl bg-blue-600 text-white">ดาวน์โหลดข้อมูล</button>
+          
           
           <button id="logoutBtn" class="px-3 py-2 rounded-xl bg-gray-700 text-white">ออกจากระบบ</button>
         </div>
@@ -428,7 +429,8 @@ const trackBtn = document.getElementById('trackBtn');
 if(trackBtn) trackBtn.addEventListener('click', async ()=>{
   const phone = (document.getElementById('trackPhone')||{}).value?.trim();
   if(!phone) return toast('กรุณากรอกเบอร์โทร','error');
-  const data = await fetchReports({ phone });
+  let data = await fetchReports({ phone });
+  data = data.slice(0, 3);
   const container = document.getElementById('trackResults'); container.innerHTML = '';
   if(!data.length) { container.innerHTML = '<div class="text-gray-600">ไม่พบข้อมูล</div>'; return; }
   container.innerHTML = data.map(r=>{
