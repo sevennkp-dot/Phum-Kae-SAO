@@ -147,7 +147,7 @@
       <div class="flex items-center justify-between mb-4">
         <h3 class="text-lg font-bold">แดชบอร์ด — รายการแจ้งเหตุ</h3>
         <div class="flex gap-2 ml-auto">
-  <input type="date" id="downloadDate" class="px-3 py-2 rounded-xl border" />
+  
   <button id="downloadReports" class="px-3 py-2 rounded-xl bg-blue-600 text-white">ดาวน์โหลดข้อมูล</button>
           
           
@@ -161,6 +161,27 @@
   </main>
 
   <div id="modalRoot"></div>
+
+<!-- Download Date Range Modal -->
+<div id="downloadModal" class="fixed inset-0 bg-black/40 hidden items-center justify-center z-50 p-4">
+  <div class="bg-white rounded-2xl p-5 max-w-md w-full shadow-2xl">
+    <h3 class="text-lg font-bold mb-3">เลือกช่วงวันที่ในการดาวน์โหลด</h3>
+    <div class="space-y-3">
+      <div>
+        <label class="text-sm font-semibold">วันที่เริ่มต้น</label>
+        <input type="date" id="downloadStart" class="mt-1 w-full rounded-xl border px-3 py-2" />
+      </div>
+      <div>
+        <label class="text-sm font-semibold">วันที่สิ้นสุด</label>
+        <input type="date" id="downloadEnd" class="mt-1 w-full rounded-xl border px-3 py-2" />
+      </div>
+    </div>
+    <div class="flex justify-end gap-2 mt-4">
+      <button id="closeDownloadModal" class="px-3 py-2 rounded-xl bg-gray-200">ยกเลิก</button>
+      <button id="confirmDownload" class="px-3 py-2 rounded-xl bg-blue-600 text-white">ดาวน์โหลด</button>
+    </div>
+  </div>
+</div>
   <div id="toast" class="toast bg-black/80 rounded-xl"></div>
 
 <script>
@@ -651,6 +672,36 @@ async function loadAndRenderReports(){
 
 async function handleChangeStatus(id, value){
   try{ await updateReportStatus(id, value); toast('อัปเดตสถานะเรียบร้อย','success'); await loadAndRenderReports(); }catch(e){ console.error(e); toast('อัปเดตไม่สำเร็จ','error'); }
+}
+
+// --- Download modal logic ---
+const downloadBtn = document.getElementById('downloadReports');
+const downloadModal = document.getElementById('downloadModal');
+const closeDownloadModal = document.getElementById('closeDownloadModal');
+const confirmDownload = document.getElementById('confirmDownload');
+
+if(downloadBtn){
+  downloadBtn.addEventListener('click', ()=>{
+    downloadModal.classList.remove('hidden');
+    downloadModal.classList.add('flex');
+  });
+}
+if(closeDownloadModal){
+  closeDownloadModal.addEventListener('click', ()=>{
+    downloadModal.classList.add('hidden');
+    downloadModal.classList.remove('flex');
+  });
+}
+if(confirmDownload){
+  confirmDownload.addEventListener('click', ()=>{
+    const start = document.getElementById('downloadStart').value;
+    const end = document.getElementById('downloadEnd').value;
+    if(!start || !end) return toast('กรุณาเลือกช่วงวันที่ให้ครบ','error');
+    // Placeholder download trigger
+    toast('กำลังดาวน์โหลดข้อมูล...','success');
+    downloadModal.classList.add('hidden');
+    downloadModal.classList.remove('flex');
+  });
 }
 
 // initial visible
