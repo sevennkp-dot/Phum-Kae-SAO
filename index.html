@@ -1,11 +1,12 @@
+<!-- Source: /mnt/data/finis.txt -->
 <!doctype html>
 <html lang="th">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>ระบบแจ้งเบาะแสการทุจริตแห่งชาติ</title>
+  <title>ระบบแจ้งเหตุเรียกรถกู้ชีพ — อบต.พุ่มแก</title>
   <script src="https://cdn.tailwindcss.com"></script>
-
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <style>
     :root{--bg:#f5f7fa;--primary:#1E3A8A;--accent:#0EA5E9;}
     html,body{height:100%;}
@@ -13,524 +14,745 @@
     .loading{display:inline-block;width:18px;height:18px;border:3px solid #f3f3f3;border-top:3px solid var(--primary);border-radius:50%;animation:spin 1s linear infinite}
     @keyframes spin{0%{transform:rotate(0)}100%{transform:rotate(360deg)}}
     .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+    /* toast */
     .toast{position:fixed;left:50%;transform:translateX(-50%) translateY(-10px);top:18px;z-index:60;padding:10px 16px;border-radius:10px;color:white;font-weight:600;opacity:0;transition:all .28s ease;backdrop-filter: blur(4px)}
     .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+    /* highlight animation for new items */
+    .pulse-highlight{animation:pulse 2s ease-in-out; border-color:#fde68a}
+    @keyframes pulse{0%{box-shadow:0 0 0 0 rgba(253,230,138,0.0)}50%{box-shadow:0 6px 18px -6px rgba(253,230,138,0.6)}100%{box-shadow:0 0 0 0 rgba(253,230,138,0.0)}}
     * { box-sizing: border-box; }
-    html, body { margin: 0; padding: 0; width: 100%; height: 100%; }
-    body { display: flex; flex-direction: column; min-height: 100vh; }
-  </style>
+  html, body { margin: 0; padding: 0; width: 100%; height: 100%; }
+  body { display: flex; flex-direction: column; min-height: 100vh; }
+</style>
 </head>
 <body class="min-h-screen text-gray-800">
 
-  <main class="w-full max-w-full md:max-w-2xl mx-auto p-4">
+  <main class="max-w-2xl mx-auto p-4">
 
     <!-- Top header / brand -->
-    <header class="mt-3 mb-3 flex items-center gap-3 w-full">
-      <div class="w-16 h-16 sm:w-20 sm:h-20 rounded-3xl bg-[000000] flex items-center justify-center shadow-md">
-        <img src="https://ylbklwrgbgmlrvknmmbn.supabase.co/storage/v1/object/sign/pic/Emblem_of_the_National_Anti-Corruption_Commission_Thailand.svg-removebg-preview%20(1).png?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV9hMWVmYzFiMC1lMDA1LTQ1MzEtYTFkZS0yYjBlY2E3YzI4NmYiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJwaWMvRW1ibGVtX29mX3RoZV9OYXRpb25hbF9BbnRpLUNvcnJ1cHRpb25fQ29tbWlzc2lvbl9UaGFpbGFuZC5zdmctcmVtb3ZlYmctcHJldmlldyAoMSkucG5nIiwiaWF0IjoxNzY0MzMzODEyLCJleHAiOjMxNTUzMzI3OTc4MTJ9.yRIFZXWd3OrA4iEKf_SQ20IfrJC2mrwaQ7GpPQ0_g6w" class="w-12 h-12 sm:w-16 sm:h-16 object-contain" alt="logo"/>
+    <header class="mt-3 mb-3 flex items-center gap-3">
+      <div class="w-12 h-12 rounded-3xl bg-[000000] flex items-center justify-center shadow-md">
+        <img src="https://yoauscrafbucdahwlvmc.supabase.co/storage/v1/object/sign/pic/logo.png?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV82YzU0ZjkzMi04YzdhLTQ2OGQtOTI3OC0wZGMyNjBlNGRlYWYiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJwaWMvbG9nby5wbmciLCJpYXQiOjE3NjM3MjQ0MDQsImV4cCI6NDkxNzMyNDQwNH0.RZSux7PsSQe2ekfKxmJrQ-PhxmvQ-2QGiEJCt465GRQ" class="w-24 h-24 object-contain" />
       </div>
-      <div class="flex-1">
-        <h1 class="text-lg sm:text-xl font-extrabold leading-tight">สำนักงาน ป.ป.ช</h1>
-        <p class="text-xs sm:text-sm text-gray-600 leading-tight">สำนักงานคณะกรรมการป้องกันและปราบปรามการทุจริตแห่งชาติ</p>
+      <div>
+        <h1 class="text-xl font-extrabold">ระบบแจ้งเหตุเรียกรถกู้ชีพ</h1>
+        <p class="text-sm text-gray-600">องค์การบริหารส่วนตำบล พุ่มแก</p>
       </div>
     </header>
 
     <!-- Primary card: emergency form -->
-    <section id="reportCard" class="bg-white rounded-3xl shadow-xl border border-gray-200 p-6 mb-6 transition-all duration-300">
+    <section id="reportCard" class="bg-white rounded-2xl shadow-2xl border border-gray-200 p-5 mb-5">
+
       <div class="mb-4">
-        <h2 class="text-lg font-bold">แจ้งการทุจริติ</h2>
-        <p class="text-sm text-gray-600 mt-1">กรุณากรอกข้อมูลที่เป็นความจริงเพื่อให้สำนักงานตรวจสอบ</p>
+        <h2 class="text-lg font-bold">แจ้งเหตุฉุกเฉิน</h2>
+        <p class="text-sm text-gray-600 mt-1">กรุณากรอกข้อมูลให้ครบถ้วน — ระบบจะส่งตำแหน่งของคุณให้กับเจ้าหน้าที่</p>
       </div>
 
-      <div class="p-3 sm:p-4 rounded-2xl bg-gray-50 border border-gray-200 shadow-sm">
-        <!-- Case ID Display -->
-        <div class="mt-0 mb-4 p-4 bg-blue-50 border border-blue-300 rounded-2xl shadow-sm">
-          <label class="block text-sm font-semibold text-blue-900">รหัสเรื่อง</label>
-          <div class="flex items-center gap-2 mt-2">
-            <input id="caseIdDisplay" type="text" readonly class="flex-1 rounded-xl border px-4 py-2 bg-white font-semibold text-blue-700 shadow-sm" />
-            <button type="button" id="copyCaseIdBtn" class="px-3 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold">คัดลอก</button>
-          </div>
-          <input type="hidden" id="caseIdInput" name="case_id" />
+      <form id="emergencyForm" class="space-y-4" novalidate>
+
+        <div>
+          <label for="inputName" class="block text-sm font-medium text-gray-700">ชื่อ-นามสกุล <span class="text-red-600">*</span></label>
+          <input id="inputName" name="name" type="text" required class="mt-1 block w-full rounded-2xl border px-4 py-3 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#1E3A8A]" placeholder="สมชาย ใจดี">
         </div>
 
-        <span class="block text-sm font-semibold text-gray-800">ระบุตัวตนหรือไม่ <span class="text-red-600">*</span></span>
-        <div class="mt-2 flex flex-col gap-2">
-          <label class="inline-flex items-center gap-2">
-            <input id="identifyYes" type="radio" name="identify" value="yes" class="w-4 h-4">
-            <span>ระบุตัวตน</span>
-          </label>
-          <label class="inline-flex items-center gap-2">
-            <input id="identifyNo" type="radio" name="identify" value="no" class="w-4 h-4">
-            <span>ไม่ระบุตัวตน</span>
-          </label>
+        <div>
+          <label for="inputPhone" class="block text-sm font-medium text-gray-700">เบอร์โทรศัพท์ <span class="text-red-600">*</span></label>
+          <input id="inputPhone" name="phone" type="tel" inputmode="tel" pattern="[0-9+()\s-]{6,}" required class="mt-1 block w-full rounded-2xl border px-4 py-3 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#1E3A8A]" placeholder="08x-xxx-xxxx">
+          <p class="text-red-600 text-sm mt-1 font-bold">** โปรดกรอกเบอร์โทรให้ถูกต้อง เพื่อให้เจ้าหน้าที่ติดต่อกลับได้ทันที **</p>
         </div>
-      </div>
 
-      <!-- All other form fields are hidden until user chooses identify option -->
-      <div id="extraFields" class="hidden">
-        <form id="emergencyForm" class="space-y-6 animate-fadeIn" novalidate>
+        <div>
+          <label for="inputUrgency" class="block text-sm font-medium text-gray-700">ระดับความเร่งด่วน <span class="text-red-600">*</span></label>
+          <select id="inputUrgency" name="urgency" required class="mt-1 block w-full rounded-2xl border px-4 py-3 focus:outline-none focus:ring-2 focus:ring-[#1E3A8A]">
+            <option value="">-- เลือกระดับความเร่งด่วน --</option>
+            <option>สูงมาก (วิกฤต)</option>
+            <option>สูง</option>
+            <option>ปานกลาง</option>
+            <option>ต่ำ</option>
+          </select>
+        </div>
 
-          <div>
-            <label for="inputName" class="block text-sm font-medium text-gray-700">ชื่อ-นามสกุล <span class="text-red-600">*</span></label>
-            <input id="inputName" name="name" type="text" class="mt-1 block w-full rounded-2xl border px-4 py-3 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#1E3A8A]" placeholder="สมชาย ใจดี">
-          </div>
+        <div>
+          <label for="inputType" class="block text-sm font-medium text-gray-700">ประเภทเหตุการณ์ <span class="text-red-600">*</span></label>
+          <select id="inputType" name="incident_type" required class="mt-1 block w-full rounded-2xl border px-4 py-3 focus:outline-none focus:ring-2 focus:ring-[#1E3A8A]">
+            <option value="">-- เลือกประเภทเหตุการณ์ --</option>
+            <option>เจ็บป่วยฉุกเฉิน</option>
+            <option>อุบัติเหตุ</option>
+            <option>ภัยพิบัติ</option>
+            <option>สัตว์มีพิษ / สัตว์ทำร้าย</option>
+            <option>อื่นๆ</option>
+          </select>
+        </div>
 
-          <div>
-            <label for="inputPhone" class="block text-sm font-medium text-gray-700">เบอร์โทรศัพท์ <span class="text-red-600">*</span></label>
-            <input id="inputPhone" name="phone" type="tel" inputmode="tel" pattern="[0-9+()\s-]{6,}" class="mt-1 block w-full rounded-2xl border px-4 py-3 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#1E3A8A]" placeholder="08x-xxx-xxxx">
-            <p class="text-red-600 text-sm mt-1 font-bold">** โปรดกรอกเบอร์โทรให้ถูกต้อง เพื่อให้เจ้าหน้าที่สามารถติดต่อกลับได้ **</p>
-          </div>
+        <div>
+          <label for="inputLocationNote" class="block text-sm font-medium text-gray-700">รายละเอียดสถานที่ (ถ้ามี)</label>
+          <textarea id="inputLocationNote" name="location_note" rows="2" class="mt-1 block w-full rounded-2xl border px-4 py-3 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#1E3A8A]" placeholder="เช่น บ้านเลขที่ 12 หมู่ 5 ใกล้ร้านกาแฟ"></textarea>
+        </div>
 
-          <div>
-            <label class="block text-sm font-medium text-gray-700">สถานที่เกิดการทุจริต (กรุณาระบุแยกเป็นหมู่บ้าน/ตำบล/อำเภอ/จังหวัด) <span class="text-red-600">*</span></label>
-            <div class="mt-2 grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <div>
-                <label class="block text-xs font-medium text-gray-600">หมู่บ้าน / ชุมชน <span class="text-red-600">*</span></label>
-                <input id="villageInput" name="village" type="text" required class="mt-1 block w-full rounded-2xl border px-3 py-2" placeholder="เช่น หมู่บ้านศรีสุข">
-              </div>
-              <div>
-                <label class="block text-xs font-medium text-gray-600">ตำบล/แขวง <span class="text-red-600">*</span></label>
-                <input id="subdistrictInput" name="subdistrict" type="text" required class="mt-1 block w-full rounded-2xl border px-3 py-2" placeholder="เช่น ตำบลท่าเรือ">
-              </div>
-              <div>
-                <label class="block text-xs font-medium text-gray-600">อำเภอ/เขต <span class="text-red-600">*</span></label>
-                <input id="districtInput" name="district" type="text" required class="mt-1 block w-full rounded-2xl border px-3 py-2" placeholder="เช่น อำเภอเมือง">
-              </div>
-              <div>
-                <label class="block text-xs font-medium text-gray-600">จังหวัด <span class="text-red-600">*</span></label>
-                <input id="provinceInput" name="province" type="text" required class="mt-1 block w-full rounded-2xl border px-3 py-2" placeholder="เช่น จังหวัดเชียงใหม่">
-              </div>
-            </div>
-          </div>
+        <!-- Location picker -->
+        <div class="space-y-2">
+          <label class="block text-sm font-medium text-gray-700">ตำแหน่งที่เกิดเหตุ <span class="text-red-600">*</span></label>
 
-          <!-- OpenAI Chatbot UI integrated -->
-          <div>
-            <label class="block text-sm font-medium text-gray-700">รายละเอียดการทุจริต (ระบบ AI วิเคราะห์)<span class="text-red-600">*</span></label>
+          <div class="flex gap-3">
+            <button id="getLocationBtn" type="button" class="flex-1 inline-flex items-center justify-center gap-2 px-4 py-3 rounded-2xl bg-[#0EA5E9] hover:bg-blue-800 text-white font-semibold focus:outline-none focus:ring-2 focus:ring-blue-300">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 2v2m6.364 1.636l-1.414 1.414M20 12h-2M18.364 18.364l-1.414-1.414M12 20v-2M5.636 18.364l1.414-1.414M4 12h2M5.636 5.636l1.414 1.414"/></svg>
+              ใช้ตำแหน่งปัจจุบัน
+            </button>
 
-            <div id="aiChatContainer" class="mt-3 w-full rounded-2xl border shadow-md overflow-hidden">
-              <div class="w-full bg-white rounded-xl overflow-hidden flex flex-col h-[420px] sm:h-[520px]">
-                <header class="p-4 bg-indigo-600 text-white shadow-md">
-                  <h1 class="text-base font-bold">🛠️ ผู้ช่วยวิเคราะห์ข้อมูลทุจริต (AI)</h1>
-                  <p class="text-xs opacity-90">กรุณาพิมพ์รายละเอียดที่ต้องการให้ระบบวิเคราะห์</p>
-                </header>
-
-                <div id="chat-output" class="flex-1 p-3 flex flex-col space-y-2 overflow-y-auto bg-gray-50"></div>
-
-                <div class="p-3 border-t bg-white">
-                  <div class="flex flex-col gap-3">
-                    <textarea id="user-input" rows="3" placeholder="พิมพ์รายละเอียดทุจริต..." class="w-full p-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500"></textarea>
-                    <button id="analyzeBtn" type="button" class="w-full py-3 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold text-lg shadow">วิเคราะห์</button>
-
-                    <!-- Upload area: hidden until AI says it's NACC responsibility -->
-                    <div id="uploadArea" class="hidden mt-3">
-                      <div class="flex gap-2">
-                        <button id="chooseFilesBtn" type="button" class="flex-1 py-2 rounded-lg border border-dashed border-gray-300 bg-white hover:bg-gray-50">เลือกไฟล์ (เลือกได้หลายไฟล์)</button>
-                        <button id="reportCorruptionBtn" type="button" class="w-40 py-2 rounded-2xl bg-green-600 hover:bg-green-700 text-white font-extrabold text-lg shadow opacity-50" disabled>แจ้งการทุจริต</button>
-                      </div>
-                      <input id="fileInput" type="file" class="hidden" multiple />
-
-                      <div id="filesGridWrap" class="mt-3">
-                        <div id="filesGrid" class="grid grid-cols-2 sm:grid-cols-5 gap-3"></div>
-                        <p id="filesHelp" class="text-xs text-gray-500 mt-2">แสดงไฟล์อัพโหลด 5 ไฟล์ต่อแถว — คุณสามารถกดปุ่ม "เลือกไฟล์" เพื่อเพิ่มไฟล์ได้หลายครั้ง</p>
-                      </div>
-                    </div>
-
-                  </div>
-                </div>
-              </div>
-            </div>
+            <button id="manualPlaceBtn" type="button" class="flex-initial inline-flex items-center gap-2 px-4 py-3 rounded-2xl bg-gray-100 border border-gray-200 text-gray-700 hover:bg-gray-50 focus:outline-none">
+              ระบุด้วยมือ
+            </button>
           </div>
 
           <div id="locationInfo" class="mt-2 hidden text-sm text-gray-700 bg-green-50 border border-green-100 rounded-xl p-3">
             <div id="coordinates" class="font-medium"></div>
             <div id="geoText" class="text-xs text-gray-600 mt-1"></div>
           </div>
+        </div>
 
-        </form>
-      </div>
+        <div class="space-y-2">
+          <button id="submitBtn" type="submit" class="w-full py-3 rounded-2xl bg-[#1E3A8A] hover:bg-red-700 text-white font-extrabold text-lg shadow">แจ้งเหตุฉุกเฉิน</button>
+
+          <div class="grid grid-cols-2 gap-3">
+            <button id="openTrackingBtn" type="button" class="w-full py-3 rounded-2xl bg-white border border-gray-200 text-gray-700 font-semibold">ตรวจสอบความคืบหน้า</button>
+            <button id="openLoginBtn" type="button" class="w-full py-3 rounded-2xl bg-amber-500 hover:bg-amber-600 text-white font-semibold">สำหรับเจ้าหน้าที่</button>
+          </div>
+        </div>
+
+      </form>
 
     </section>
 
-    <!-- hidden AI results inputs -->
-    <input id="villageField" name="village_ai" type="hidden" />
-    <input id="provinceField" name="province_ai" type="hidden" />
-    <input id="districtField" name="district_ai" type="hidden" />
-    <input id="subdistrictField" name="subdistrict_ai" type="hidden" />
-
-    <!-- Popup ผลการวิเคราะห์ AI -->
-    <div id="aiResultPopup" class="fixed inset-0 bg-black/40 hidden items-center justify-center z-50">
-      <div class="bg-white rounded-2xl p-6 max-w-sm w-full shadow-2xl text-center">
-        <h3 class="text-lg font-bold mb-2">ผลการวิเคราะห์จากระบบ AI</h3>
-        <div id="aiResultText" class="text-gray-700 mb-4 text-left"></div>
-        <div class="text-center"><button id="closeAiPopup" class="px-4 py-2 rounded-xl bg-indigo-600 text-white">ปิด</button></div>
+    <!-- Tracking (hidden by default) -->
+    <section id="userTrackingPage" class="hidden bg-white rounded-2xl shadow-2xl border border-gray-200 p-5 mb-5">
+      <div class="mb-3"><h3 class="font-bold">ตรวจสอบความคืบหน้า</h3><p class="text-sm text-gray-600">กรอกเบอร์โทรที่ใช้แจ้งเหตุ</p></div>
+      <div class="space-y-3">
+        <input id="trackPhone" type="tel" class="w-full rounded-2xl border px-4 py-3" placeholder="08x-xxx-xxxx">
+        <button id="trackBtn" class="w-full py-3 rounded-2xl bg-[#0EA5E9] hover:bg-blue-800 text-white font-semibold">ค้นหา</button>
+        <div id="trackResults" class="space-y-3"></div>
+        <button id="backToReportBtn" class="text-sm text-gray-600 underline">← กลับ</button>
       </div>
-    </div>
+    </section>
+
+    <!-- Admin (login + dashboard) -->
+    <section id="loginPage" class="hidden bg-white rounded-2xl shadow-2xl border border-gray-200 p-5 mb-5">
+      <h3 class="font-bold mb-3">เข้าสู่ระบบผู้ดูแล</h3>
+      <form id="loginForm" class="space-y-3">
+        <input name="email" type="email" placeholder="อีเมล" class="w-full rounded-2xl border px-4 py-3" required>
+        <input name="password" type="password" placeholder="รหัสผ่าน" class="w-full rounded-2xl border px-4 py-3" required>
+        <button class="w-full py-3 rounded-2xl bg-gray-800 text-white font-semibold">เข้าสู่ระบบ</button>
+      </form>
+    </section>
+
+    <section id="adminDashboard" class="hidden">
+      <div class="flex items-center justify-between mb-4">
+        <h3 class="text-lg font-bold">แดชบอร์ด — รายการแจ้งเหตุ</h3>
+        <div class="flex gap-2 ml-auto">
+  
+  <button id="downloadReports" class="px-3 py-2 rounded-xl bg-blue-600 text-white">ดาวน์โหลดข้อมูล</button>
+          
+          
+          <button id="logoutBtn" class="px-3 py-2 rounded-xl bg-gray-700 text-white">ออกจากระบบ</button>
+        </div>
+      </div>
+
+      <div id="reportsList" class="space-y-3"></div>
+    </section>
 
   </main>
 
   <div id="modalRoot"></div>
+
+<!-- Download Date Range Modal -->
+<div id="downloadModal" class="fixed inset-0 bg-black/40 hidden items-center justify-center z-50 p-4">
+  <div class="bg-white rounded-2xl p-5 max-w-md w-full shadow-2xl">
+    <h3 class="text-lg font-bold mb-3">เลือกช่วงวันที่ในการดาวน์โหลด</h3>
+    <div class="space-y-3">
+      <div>
+        <label class="text-sm font-semibold">วันที่เริ่มต้น</label>
+        <input type="date" id="downloadStart" class="mt-1 w-full rounded-xl border px-3 py-2" />
+      </div>
+      <div>
+        <label class="text-sm font-semibold">วันที่สิ้นสุด</label>
+        <input type="date" id="downloadEnd" class="mt-1 w-full rounded-xl border px-3 py-2" />
+      </div>
+    </div>
+    <div class="flex justify-end gap-2 mt-4">
+      <button id="closeDownloadModal" class="px-3 py-2 rounded-xl bg-gray-200">ยกเลิก</button>
+      <button id="confirmDownload" class="px-3 py-2 rounded-xl bg-blue-600 text-white">ดาวน์โหลด</button>
+    </div>
+  </div>
+</div>
   <div id="toast" class="toast bg-black/80 rounded-xl"></div>
 
 <script>
-// -------------------------
-// Helper UI & init
-// -------------------------
-function generateCaseId(){
-  var timePart = Date.now().toString(36).toUpperCase();
-  var rnd = Math.random().toString(36).substring(2,8).toUpperCase();
-  return 'CASE-' + timePart.slice(-6) + '-' + rnd.slice(0,4);
-}
+// ---------------------------
+// Supabase (same as original)
+// ---------------------------
+const supabaseUrl = "https://yoauscrafbucdahwlvmc.supabase.co";
+const supabaseKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlvYXVzY3JhZmJ1Y2RhaHdsdm1jIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjMzNzU4MzgsImV4cCI6MjA3ODk1MTgzOH0.GdoWeFsaEYEExSkqT92RiFqVHyKepjGV06ByeVmdDrQ";
+const supabase = window.supabase.createClient(supabaseUrl, supabaseKey);
 
-function showToast(msg, ms) {
-  ms = typeof ms === 'number' ? ms : 3000;
-  var t = document.getElementById('toast');
-  if(!t) return;
-  t.textContent = msg;
-  t.classList.add('show');
-  setTimeout(function(){ t.classList.remove('show'); }, ms);
-}
-
-function showAiPopup(htmlMessage) {
-  var el = document.getElementById('aiResultText');
-  var popup = document.getElementById('aiResultPopup');
-  if(!el || !popup) return;
-  el.innerHTML = htmlMessage;
-  popup.classList.remove('hidden');
-}
-
-// -------------------------
-// DOM Ready init
-// -------------------------
-document.addEventListener('DOMContentLoaded', function(){
-  try{
-    var display = document.getElementById('caseIdDisplay');
-    var input = document.getElementById('caseIdInput');
-    if(display && input){
-      var id = generateCaseId();
-      display.value = id;
-      input.value = id;
-      display.setAttribute('readonly','readonly');
-    }
-
-    var copyBtn = document.getElementById('copyCaseIdBtn');
-    if(copyBtn){
-      copyBtn.addEventListener('click', function(){
-        try{ navigator.clipboard && navigator.clipboard.writeText && navigator.clipboard.writeText(document.getElementById('caseIdDisplay').value); }
-        catch(e){}
-        showToast('คัดลอกรหัสเรื่องแล้ว');
-      });
-    }
-
-    var radioYes = document.getElementById('identifyYes');
-    var radioNo = document.getElementById('identifyNo');
-    var extra = document.getElementById('extraFields');
-    var nameInput = document.getElementById('inputName');
-    var phoneInput = document.getElementById('inputPhone');
-    var nameField = nameInput ? nameInput.parentElement : null;
-    var phoneField = phoneInput ? phoneInput.parentElement : null;
-
-    function updateVisibility() {
-      var yesChecked = radioYes && radioYes.checked;
-      var noChecked = radioNo && radioNo.checked;
-
-      if(!yesChecked && !noChecked){
-        if(extra) extra.classList.add('hidden');
-        if(nameInput) nameInput.required = false;
-        if(phoneInput) phoneInput.required = false;
-        return;
-      }
-
-      if(extra) extra.classList.remove('hidden');
-
-      if(noChecked){
-        if(nameField) nameField.classList.add('hidden');
-        if(phoneField) phoneField.classList.add('hidden');
-        if(nameInput) nameInput.required = false;
-        if(phoneInput) phoneInput.required = false;
-      } else if(yesChecked){
-        if(nameField) nameField.classList.remove('hidden');
-        if(phoneField) phoneField.classList.remove('hidden');
-        if(nameInput) nameInput.required = true;
-        if(phoneInput) phoneInput.required = true;
-      }
-    }
-
-    if(radioYes) radioYes.addEventListener('change', updateVisibility);
-    if(radioNo) radioNo.addEventListener('change', updateVisibility);
-    updateVisibility();
-
-    var closeBtn = document.getElementById('closeAiPopup');
-    if(closeBtn) closeBtn.addEventListener('click', function(){
-      var popup = document.getElementById('aiResultPopup');
-      if(popup) popup.classList.add('hidden');
-    });
-
-    var analyzeBtn = document.getElementById('analyzeBtn');
-    if(analyzeBtn) analyzeBtn.addEventListener('click', analyzeCorruptionDetails);
-
-    var villageInput = document.getElementById('villageInput');
-    var subdistrictInput = document.getElementById('subdistrictInput');
-    var districtInput = document.getElementById('districtInput');
-    var provinceInput = document.getElementById('provinceInput');
-
-    function syncLocationHiddenFields() {
-      var vf = document.getElementById('villageField');
-      var sf = document.getElementById('subdistrictField');
-      var df = document.getElementById('districtField');
-      var pf = document.getElementById('provinceField');
-      if(vf) vf.value = villageInput ? villageInput.value : '';
-      if(sf) sf.value = subdistrictInput ? subdistrictInput.value : '';
-      if(df) df.value = districtInput ? districtInput.value : '';
-      if(pf) pf.value = provinceInput ? provinceInput.value : '';
-    }
-
-    [villageInput, subdistrictInput, districtInput, provinceInput].forEach(function(el){
-      if(!el) return;
-      el.addEventListener('input', syncLocationHiddenFields);
-      el.addEventListener('blur', analyzeLocationWithAI);
-    });
-
-  }catch(e){
-    console.error('init error', e);
+// --- persist login: auto-restore admin session ---
+supabase.auth.getSession().then(({ data }) => {
+  if(data?.session){
+    // auto-show admin dashboard
+    document.getElementById('loginPage').classList.add('hidden');
+    document.getElementById('reportCard').classList.add('hidden');
+    document.getElementById('adminDashboard').classList.remove('hidden');
+    loadAndRenderReports();
+    startRealtimeIntegration();
   }
 });
 
-</script>
+// --- small UI helpers ---
+function toast(message, type='info'){
+  const t = document.getElementById('toast'); t.innerText = message;
+  t.className = 'toast ' + (type==='error'? 'bg-red-600' : type==='success'? 'bg-green-600' : 'bg-black/80');
+  t.classList.add('show'); clearTimeout(t._h); t._h = setTimeout(()=>{ t.classList.remove('show'); }, 2500);
+}
 
-<script>
-// -------------------------
-// AI analyze flow (frontend -> Supabase Edge Function)
-// -------------------------
-var aiChecked = false;
-var aiIsNACC = false;
+// --- Alert sound + pending modal (urgent notifications) ---
+// Robust alert audio: crossOrigin, WebAudio amplification, explicit user enable button, and oscillator fallback
+const ALERT_SOUND_URL = 'https://yoauscrafbucdahwlvmc.supabase.co/storage/v1/object/sign/sound/ambulance.mp3?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV82YzU0ZjkzMi04YzdhLTQ2OGQtOTI3OC0wZGMyNjBlNGRlYWYiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJzb3VuZC9hbWJ1bGFuY2UubXAzIiwiaWF0IjoxNzYzODAwNzMyLCJleHAiOjQ5MTc0MDA3MzJ9.syIQrfITqbsKbTM8x9cef8_NDY5G7HRAlpRuiYpX1v0';
+const alertAudio = new Audio(ALERT_SOUND_URL);
+alertAudio.loop = true; alertAudio.preload = 'auto';
+alertAudio.crossOrigin = 'anonymous';
 
-async function analyzeCorruptionDetails(){
-  var inputEl = document.getElementById('user-input');
-  var outputBox = document.getElementById('chat-output');
-  var reportBtn = document.getElementById('reportCorruptionBtn');
+// Web Audio nodes
+let audioCtx = null;
+let alertSource = null;
+let alertGain = null;
+let oscillatorNode = null; // fallback if media element can't play
+let initialGain = 2.0; // amplification factor (1.0 = unchanged)
+let audioEnabled = true; // set true after user enables sound
 
-  if(!inputEl || !outputBox || !reportBtn) return;
-
-  var input = (inputEl.value || '').trim();
-  aiChecked = false; aiIsNACC = false;
-  reportBtn.disabled = true; reportBtn.classList.add('opacity-50');
-
-  if(!input) {
-    showToast('กรุณากรอกรายละเอียดก่อนวิเคราะห์');
-    return;
-  }
-
-  // Show user message in chat
-  var userMsg = document.createElement('div');
-  userMsg.className = 'p-2 bg-gray-200 rounded-xl self-end';
-  userMsg.textContent = input;
-  outputBox.appendChild(userMsg);
-  outputBox.scrollTop = outputBox.scrollHeight;
-
+function setupAlertAudio(){
+  if(audioCtx || !alertAudio) return;
   try{
-    var res = await fetch('https://ylbklwrgbgmlrvknmmbn.supabase.co/functions/v1/analyze-nacc', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ 
-        text: input,
-        village: (document.getElementById('villageField') && document.getElementById('villageField').value) || "",
-        subdistrict: (document.getElementById('subdistrictField') && document.getElementById('subdistrictField').value) || "",
-        district: (document.getElementById('districtField') && document.getElementById('districtField').value) || "",
-        province: (document.getElementById('provinceField') && document.getElementById('provinceField').value) || ""
-      })
-    });
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    // create source from media element; may throw if not allowed cross-origin
+    try{
+      alertSource = audioCtx.createMediaElementSource(alertAudio);
+      alertGain = audioCtx.createGain();
+      alertGain.gain.value = initialGain;
+      alertSource.connect(alertGain).connect(audioCtx.destination);
+    }catch(e){
+      console.warn('MediaElementSource failed, will use oscillator fallback', e);
+      alertSource = null; alertGain = null;
+    }
 
-    if(!res.ok){
-      var txt = await res.text();
-      var errMsg = 'การวิเคราะห์ล้มเหลว: ' + res.status + ' ' + txt;
-      var botErr = document.createElement('div'); botErr.className='p-2 rounded-xl bg-red-200'; botErr.textContent = errMsg; outputBox.appendChild(botErr);
-      showToast('เกิดข้อผิดพลาดในการเรียก API');
+    // ensure resume on user interaction
+    if(audioCtx.state === 'suspended'){
+      const resume = ()=>{ audioCtx.resume().catch(()=>{}); document.removeEventListener('click', resume); };
+      document.addEventListener('click', resume, { once: true });
+    }
+  }catch(e){
+    console.warn('WebAudio setup failed', e);
+    audioCtx = null; alertSource = null;
+  }
+}
+
+function enableAudioForUser(){
+  // call this from a user gesture (button click) to allow autoplay/resume
+  try{
+    setupAlertAudio();
+    if(audioCtx){ audioCtx.resume().catch(()=>{}); }
+    // play a very short silent sound to unlock audio
+    alertAudio.volume = 0.0001;
+    alertAudio.play().then(()=>{
+      alertAudio.pause(); alertAudio.currentTime = 0; alertAudio.volume = 1.0;
+      audioEnabled = true; toast('เปิดเสียงเรียบร้อยแล้ว','success');
+    }).catch(err=>{
+      console.warn('unlock play failed', err);
+      // try oscillator as a last resort
+      try{
+        if(!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        oscillatorNode = audioCtx.createOscillator();
+        const g = audioCtx.createGain(); g.gain.value = 0.0001; // almost silent pulse to unlock
+        oscillatorNode.connect(g).connect(audioCtx.destination);
+        oscillatorNode.start(); setTimeout(()=>{ oscillatorNode.stop(); oscillatorNode.disconnect(); oscillatorNode=null; }, 100);
+        audioEnabled = true; toast('เปิดเสียงเรียบร้อยแล้ว','success');
+      }catch(e){ console.warn('oscillator unlock failed', e); toast('ไม่สามารถเปิดเสียงอัตโนมัติได้ โปรดคลิกที่หน้าเพื่ออนุญาตเสียง', 'error'); }
+    });
+  }catch(e){ console.warn('enableAudioForUser failed', e); toast('ไม่สามารถเปิดเสียงได้', 'error'); }
+}
+
+function setAlertGain(value){
+  initialGain = Number(value) || 1.0;
+  try{ if(alertGain) alertGain.gain.value = initialGain; }catch(e){}
+}
+
+function startOscillatorFallback(){
+  try{
+    if(!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    if(oscillatorNode) return; // already running
+    oscillatorNode = audioCtx.createOscillator();
+    const g = audioCtx.createGain();
+    g.gain.value = 0.1; // moderate volume fallback
+    oscillatorNode.type = 'sine';
+    oscillatorNode.frequency.value = 880; // high-pitched alert-like tone
+    oscillatorNode.connect(g).connect(audioCtx.destination);
+    oscillatorNode.start();
+  }catch(e){ console.warn('startOscillatorFallback failed', e); }
+}
+
+function stopOscillatorFallback(){
+  try{ if(oscillatorNode){ oscillatorNode.stop(); oscillatorNode.disconnect(); oscillatorNode=null; } }catch(e){}
+}
+
+function playAlertSound(){
+  try{
+    if(!audioEnabled){
+      // try to auto-enable by prompting user visually
+      console.warn('audio not enabled; calling enableAudioForUser automatically');
+      // show a temporary prompt (non-blocking)
+      toast('คลิกที่หน้าเพื่ออนุญาตเสียงแจ้งเตือน (required)', 'info');
       return;
     }
-
-    var ai = await res.json();
-
-    aiChecked = true;
-    aiIsNACC = ai && ai.is_nacc_responsibility === true;
-
-    var botMsg = document.createElement('div');
-    botMsg.className = 'p-2 rounded-xl';
-    botMsg.textContent = ai && (ai.reason || ai.message) ? (ai.reason || ai.message) : JSON.stringify(ai);
-    botMsg.classList.add(aiIsNACC ? 'bg-green-200' : 'bg-red-200');
-    outputBox.appendChild(botMsg);
-    outputBox.scrollTop = outputBox.scrollHeight;
-
-    if(aiIsNACC){
-      reportBtn.disabled = false;
-      reportBtn.classList.remove('opacity-50');
-      reportBtn.classList.remove('hidden');
-      // show upload area when analyzed as NACC responsibility
-      var uploadArea = document.getElementById('uploadArea');
-      if(uploadArea){ uploadArea.classList.remove('hidden'); }
+    setupAlertAudio();
+    if(audioCtx && audioCtx.state === 'suspended') audioCtx.resume().catch(()=>{});
+    if(alertSource){
+      alertGain && (alertGain.gain.value = initialGain);
+      alertAudio.volume = 1.0;
+      alertAudio.play().catch(err=>{ console.warn('alertAudio play failed, starting oscillator fallback', err); startOscillatorFallback(); });
     } else {
-      reportBtn.disabled = true;
-      reportBtn.classList.add('opacity-50');
-      reportBtn.classList.add('hidden');
-      var uploadArea = document.getElementById('uploadArea');
-      if(uploadArea){ uploadArea.classList.add('hidden'); }
+      // media element source not available -> oscillator fallback
+      startOscillatorFallback();
     }
-
-    var village = (document.getElementById('villageField') && document.getElementById('villageField').value) || '-';
-    var subdistrict = (document.getElementById('subdistrictField') && document.getElementById('subdistrictField').value) || '-';
-    var district = (document.getElementById('districtField') && document.getElementById('districtField').value) || '-';
-    var province = (document.getElementById('provinceField') && document.getElementById('provinceField').value) || '-';
-
-    var v = (document.getElementById('villageInput') && document.getElementById('villageInput').value) || '-';
-    var s = (document.getElementById('subdistrictInput') && document.getElementById('subdistrictInput').value) || '-';
-    var d = (document.getElementById('districtInput') && document.getElementById('districtInput').value) || '-';
-    var p = (document.getElementById('provinceInput') && document.getElementById('provinceInput').value) || '-';
-
-    var userLocation = v + ', ' + s + ', ' + d + ', ' + p;
-
-    var htmlPieces = [];
-    if(aiIsNACC){
-      htmlPieces.push('<div style="color:#166534;font-weight:700;font-size:18px;">✔ เป็นความรับผิดชอบของสำนักงาน ป.ป.ช</div>');
-      htmlPieces.push('<div style="margin-top:6px;color:#374151;font-weight:600;">พื้นที่ตรวจสอบ:</div>');
-      // show individual fields, but DO NOT show the full concatenated userLocation line
-      htmlPieces.push('<div style="color:#374151;margin-top:6px;">หมู่บ้าน: <b>' + village + '</b></div>');
-      htmlPieces.push('<div style="color:#374151;">ตำบล: <b>' + subdistrict + '</b></div>');
-      htmlPieces.push('<div style="color:#374151;">อำเภอ: <b>' + district + '</b></div>');
-      htmlPieces.push('<div style="color:#374151;">จังหวัด: <b>' + province + '</b></div>');
-    } else {
-      htmlPieces.push('<div style="color:#B91C1C;font-weight:700;font-size:18px;">✖ ไม่อยู่ในความรับผิดชอบของสำนักงาน ป.ป.ช</div>');
-      // ไม่ต้องแสดงสถานที่ที่ระบุ
-    }
-
-    showAiPopup(htmlPieces.join('\n'));
-
-  }catch(err){
-    var botErr = document.createElement('div'); botErr.className='p-2 rounded-xl bg-red-200'; botErr.textContent = 'Error: ' + (err && err.message ? err.message : String(err)); outputBox.appendChild(botErr);
-    showToast('เกิดข้อผิดพลาดในการวิเคราะห์');
-  }
+  }catch(e){ console.warn('playAlertSound failed', e); }
 }
-
-// -------------------------
-// Location extraction (frontend -> Supabase extract-location function)
-// -------------------------
-async function analyzeLocationWithAI(){
-  var v = (document.getElementById('villageInput') && document.getElementById('villageInput').value) || '';
-  var s = (document.getElementById('subdistrictInput') && document.getElementById('subdistrictInput').value) || '';
-  var d = (document.getElementById('districtInput') && document.getElementById('districtInput').value) || '';
-  var p = (document.getElementById('provinceInput') && document.getElementById('provinceInput').value) || '';
-  var text = [v,s,d,p].filter(function(x){ return x && x.trim(); }).join(', ');
-  if(!text) return;
-
+function stopAlertSound(){
   try{
-    var res = await fetch('https://ylbklwrgbgmlrvknmmbn.supabase.co/functions/v1/extract-location', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text: text })
-    });
-
-    if(!res.ok) return;
-    var data = await res.json();
-
-    var pf = document.getElementById('provinceField'); if(pf) pf.value = data.province || '';
-    var df = document.getElementById('districtField'); if(df) df.value = data.district || '';
-    var sf = document.getElementById('subdistrictField'); if(sf) sf.value = data.subdistrict || '';
-    var vf = document.getElementById('villageField'); if(vf) vf.value = data.village || '';
-  }catch(err){
-    console.warn('extract-location failed', err);
-  }
+    if(alertAudio){ alertAudio.pause(); alertAudio.currentTime = 0; }
+    stopOscillatorFallback();
+  }catch(e){}
 }
 
-</script>
+function showPendingModal(pendingReports){
+  removePendingModal();
+  if(!pendingReports || !pendingReports.length) return;
+  const root = document.getElementById('modalRoot');
+  const overlay = document.createElement('div');
+  overlay.id = 'pendingAlertModal';
+  overlay.className = 'fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4';
+  overlay.innerHTML = `
+    <div class="bg-white rounded-2xl p-4 max-w-xl w-full shadow-2xl">
+      <div class="flex items-start gap-3">
+        <div class="w-12 h-12 flex items-center justify-center rounded-2xl bg-red-600 text-white font-bold">!</div>
+        <div class="flex-1">
+          <h3 class="font-bold text-lg">มีเหตุฉุกเฉินรอดำเนินการ (${pendingReports.length})</h3>
+          <p class="text-sm text-gray-600 mt-1">โปรดตรวจสอบและตอบกลับโดยด่วน</p>
+          <div class="mt-3 space-y-2" style="max-height:220px; overflow:auto;">
+            ${pendingReports.map(r=>`<div class="p-2 border rounded-md bg-gray-50">
+              <div class="font-semibold">${r.name||'ไม่ทราบชื่อ'}</div>
+              <div class="text-xs text-gray-600">${r.incident_type||''} • ${r.phone||''}</div>
+              <div class="text-xs text-gray-500 mt-1">${r.location_note||''}</div>
+              <div class="text-xs text-gray-400">${r.created_at? new Date(r.created_at).toLocaleString('th-TH') : ''}</div>
+              <div class="text-right mt-2"><button class="open-map-btn underline text-blue-600 text-sm" data-lat="${r.latitude||0}" data-lng="${r.longitude||0}">ดูแผนที่</button></div>
+            </div>`).join('')}
+          </div>
+        </div>
+      </div>
+      <div class="mt-4 text-right">
+        <button id="dismissAlertBtn" class="px-3 py-2 rounded-md bg-gray-100 mr-2">ปิดเสียง</button>
+        <button id="closePendingModalBtn" class="px-3 py-2 rounded-md bg-red-600 text-white">ปิดหน้าต่าง</button>
+      </div>
+    </div>
+  `;
+  root.appendChild(overlay);
+  overlay.querySelectorAll('.open-map-btn').forEach(btn=>{
+    btn.addEventListener('click', ()=>{ const lat=btn.dataset.lat; const lng=btn.dataset.lng; window.open(`https://www.google.com/maps?q=${lat},${lng}`,'_blank'); });
+  });
+  document.getElementById('dismissAlertBtn').addEventListener('click', ()=>{ stopAlertSound(); });
+  document.getElementById('closePendingModalBtn').addEventListener('click', ()=>{ removePendingModal(); stopAlertSound(); });
+}
+function removePendingModal(){ const ex = document.getElementById('pendingAlertModal'); if(ex) ex.remove(); }
+
+// --- geolocation state ---
+let currentLocation = null;
+
+// try to make mobile friendly prompt
+const getLocationBtn = document.getElementById('getLocationBtn');
+if(getLocationBtn) getLocationBtn.addEventListener('click', ()=>{
+  getLocationBtn.disabled = true; const old = getLocationBtn.innerHTML; getLocationBtn.innerHTML = '<span class="loading"></span> กำลังค้นหาตำแหน่ง...';
+  navigator.geolocation.getCurrentPosition(pos=>{
+    currentLocation = { latitude: pos.coords.latitude, longitude: pos.coords.longitude };
+    document.getElementById('locationInfo').classList.remove('hidden');
+    document.getElementById('coordinates').innerText = `ละติจูด: ${currentLocation.latitude.toFixed(6)}, ลองจิจูด: ${currentLocation.longitude.toFixed(6)}`;
+    document.getElementById('geoText').innerText = 'ตำแหน่งถูกส่งเมื่อกดแจ้งเหตุ';
+    getLocationBtn.innerHTML = old; getLocationBtn.disabled = false; toast('รับตำแหน่งเรียบร้อย','success');
+  }, err=>{
+    getLocationBtn.disabled = false; getLocationBtn.innerHTML = old; toast('ไม่สามารถรับตำแหน่งได้ กรุณาลองใหม่','error');
+  }, { enableHighAccuracy:true, timeout:10000 });
+});
+
+// manual place toggling (simplified)
+const manualPlaceBtn = document.getElementById('manualPlaceBtn');
+if(manualPlaceBtn) manualPlaceBtn.addEventListener('click', ()=>{
+  const note = document.getElementById('inputLocationNote'); note.focus(); note.scrollIntoView({behavior:'smooth', block:'center'});
+});
+
+// --- CRUD helpers ---
+async function createReport(payload){
+  try{
+    const resp = await supabase.from('reports').insert(payload).select();
+    if(resp.error){ console.error('createReport error (resp.error):', resp.error); throw resp.error; }
+    const data = resp.data || resp;
+    return Array.isArray(data) && data.length ? data[0] : data;
+  }catch(e){ console.error('createReport exception:', e); const msg = e?.message || JSON.stringify(e); const err = new Error(msg); err.raw = e; throw err; }
+}
+async function fetchReports({ phone=null }={}){
+  let q = supabase.from('reports').select('*').order('created_at',{ascending:false});
+  if(phone) q = q.eq('phone', phone);
+  const { data, error } = await q;
+  if(error) { console.error(error); return []; }
+  return data || [];
+}
+async function updateReportStatus(id, status){
+  const { data, error } = await supabase.from('reports').update({ status }).eq('id', id).select().single();
+  if(error) throw error; return data;
+}
+
+// --- form submit ---
+const emergencyForm = document.getElementById('emergencyForm');
+if(emergencyForm) emergencyForm.addEventListener('submit', async (e)=>{
+  e.preventDefault();
+  const name = (document.getElementById('inputName')||{}).value?.trim();
+  const phone = (document.getElementById('inputPhone')||{}).value?.trim();
+  const urgency = (document.getElementById('inputUrgency')||{}).value;
+  const incident_type = (document.getElementById('inputType')||{}).value;
+  const note = (document.getElementById('inputLocationNote')||{}).value?.trim() || '';
+  if(!name || !phone || !incident_type) return toast('กรุณากรอกข้อมูลที่มีเครื่องหมาย * ให้ครบ','error');
+  if(!currentLocation) return toast('กรุณาอนุญาตตำแหน่งก่อนส่งแจ้งเหตุ','error');
+
+  const payload = { name, phone, urgency, incident_type, location_note: note, latitude: currentLocation.latitude, longitude: currentLocation.longitude, status: 'รอดำเนินการ' };
+  try{
+    const resp = await createReport(payload);
+    console.log('createReport response:', resp);
+    emergencyForm.reset(); currentLocation = null; document.getElementById('locationInfo').classList.add('hidden');
+    toast('แจ้งเหตุเรียบร้อยแล้ว','success');
+  }catch(err){ console.error('submit error:', err, err?.raw || 'no raw'); const short = err?.message || 'เกิดข้อผิดพลาดขณะส่งข้อมูล'; toast('ไม่สามารถส่งข้อมูลได้: ' + short, 'error'); }
+});
+
+// --- tracking ---
+const openTrackingBtn = document.getElementById('openTrackingBtn');
+const backToReportBtn = document.getElementById('backToReportBtn');
+if(openTrackingBtn) openTrackingBtn.addEventListener('click', ()=>{
+  document.getElementById('reportCard').classList.add('hidden');
+  document.getElementById('userTrackingPage').classList.remove('hidden');
+});
+if(backToReportBtn) backToReportBtn.addEventListener('click', ()=>{
+  document.getElementById('userTrackingPage').classList.add('hidden');
+  document.getElementById('reportCard').classList.remove('hidden');
+});
+
+const trackBtn = document.getElementById('trackBtn');
+if(trackBtn) trackBtn.addEventListener('click', async ()=>{
+  const phone = (document.getElementById('trackPhone')||{}).value?.trim();
+  if(!phone) return toast('กรุณากรอกเบอร์โทร','error');
+  let data = await fetchReports({ phone });
+  data = data.slice(0, 3);
+  const container = document.getElementById('trackResults'); container.innerHTML = '';
+  if(!data.length) { container.innerHTML = '<div class="text-gray-600">ไม่พบข้อมูล</div>'; return; }
+  container.innerHTML = data.map(r=>{
+    return `<div class="p-3 rounded-2xl border bg-gray-50">
+      <div class="flex justify-between items-start">
+        <div>
+          <div class="font-semibold text-gray-800">${r.incident_type}</div>
+          <div class="text-sm text-gray-600 mt-1">${r.location_note||'-'}</div>
+          <div class="text-xs text-gray-500 mt-2">${r.created_at? new Date(r.created_at).toLocaleString('th-TH') : ''}</div>
+        </div>
+        <div class="text-right">
+          <div class="text-sm font-semibold ${r.status==='รอดำเนินการ'? 'text-yellow-700' : r.status==='กำลังออกไป'? 'text-blue-700' : 'text-green-700'}">${r.status}</div>
+          <button onclick="window.open('https://www.google.com/maps?q=${r.latitude||0},${r.longitude||0}','_blank')" class="text-sm underline mt-2">ดูแผนที่</button>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+});
+
+// --- Admin login + dashboard hooks (minimal) ---
+const openLoginBtn = document.getElementById('openLoginBtn');
+if(openLoginBtn) openLoginBtn.addEventListener('click', ()=>{
+  document.getElementById('reportCard').classList.add('hidden');
+  document.getElementById('loginPage').classList.remove('hidden');
+});
+const loginForm = document.getElementById('loginForm');
+if(loginForm) loginForm.addEventListener('submit', async (e)=>{
+  e.preventDefault();
+  const fd = new FormData(loginForm);
+  const email = fd.get('email'); const password = fd.get('password');
+  const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+  if(error) { toast('เข้าสู่ระบบไม่สำเร็จ','error'); return; }
+  document.getElementById('loginPage').classList.add('hidden');
+  document.getElementById('adminDashboard').classList.remove('hidden');
+  await loadAndRenderReports();
+  startRealtimeIntegration();
+  toast('เข้าสู่ระบบสำเร็จ','success');
+});
+
+// logout
+const logoutBtn = document.getElementById('logoutBtn');
+if(logoutBtn) logoutBtn.addEventListener('click', async ()=>{
+  try{
+    await supabase.auth.signOut();
+  }catch(e){ console.warn('signOut failed', e); }
+  try{ await unsubscribeReportsRealtime(); }catch(e){}
+  document.getElementById('adminDashboard').classList.add('hidden');
+  document.getElementById('reportCard').classList.remove('hidden');
+  document.getElementById('loginPage').classList.remove('hidden');
+  toast('ออกจากระบบแล้ว','success');
+  setTimeout(()=>{ try{ location.reload(); }catch(e){} }, 500);
+});
 
 
-<script>
-// File upload UI logic (supports multiple selections, multiple times, grid 5-per-row)
-(function(){
-  var uploadedFiles = []; // {id, file, url}
-  var chooseBtn = document.getElementById('chooseFilesBtn');
-  var fileInput = document.getElementById('fileInput');
-  var filesGrid = document.getElementById('filesGrid');
-  var reportBtn = document.getElementById('reportCorruptionBtn');
+// enable sound button (must be user gesture)
 
-  function formatBytes(bytes) {
-    if (bytes === 0) return '0 B';
-    var k = 1024, sizes = ['B', 'KB', 'MB', 'GB', 'TB'], i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
-  }
 
-  function renderFiles(){
-    if(!filesGrid) return;
-    filesGrid.innerHTML = '';
-    uploadedFiles.forEach(function(item, idx){
-      var f = item.file;
-      var tile = document.createElement('div');
-      tile.className = 'relative border border-gray-300 rounded-lg p-2 bg-white flex flex-col items-center justify-start text-xs';
-      tile.style.minHeight = '60px';
+// --- Realtime subscriptions (admin) ---
+let reportsChannel = null;
 
-      var thumbWrap = document.createElement('div');
-      thumbWrap.className = 'w-full flex items-center justify-center mb-2';
-      thumbWrap.style.height = '12px';
+function subscribeReportsRealtime(onEvent){
+  if(reportsChannel) return reportsChannel;
+  reportsChannel = supabase
+    .channel('public:reports')
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'reports' }, payload => {
+      try{ onEvent && onEvent(payload); }catch(e){ console.error('realtime handler', e); }
+    })
+    .subscribe();
+  return reportsChannel;
+}
 
-      if(item.url){
-        var img = document.createElement('img'); img.src = item.url; img.style.maxHeight='12px'; img.style.objectFit='contain'; img.className='rounded';
-        thumbWrap.appendChild(img);
-      } else {
-        var ext = (f.name.split('.').pop() || '').toUpperCase();
-        var icon = document.createElement('div'); icon.className='flex items-center justify-center w-full h-full text-sm font-semibold text-gray-600'; icon.textContent = ext || 'FILE';
-        thumbWrap.appendChild(icon);
+async function unsubscribeReportsRealtime(){
+  if(!reportsChannel) return;
+  try{ await supabase.removeChannel(reportsChannel); }catch(e){ console.warn('removeChannel failed', e); }
+  reportsChannel = null;
+}
+
+function prependOrUpdateReportInList(row){
+  try{
+    const listEl = document.getElementById('reportsList'); if(!listEl) return;
+    const existing = listEl.querySelector(`[data-id=report-${row.id}]`);
+    const date = row.created_at ? new Date(row.created_at).toLocaleString('th-TH') : '';
+    const html = `
+      <div class="p-3 rounded-2xl border flex justify-between items-start ${row.status==='รอดำเนินการ'? 'bg-[#FDE68A] border-[#FDE68A]':row.status==='รับทราบ'?'bg-[#BFDBFE] border-[#BFDBFE]':row.status==='กำลังออกไป'?'bg-[#FECACA] border-[#FECACA]':'bg-[#BBF7D0] border-[#BBF7D0]'}" data-id="report-${row.id}">
+        <div>
+          <div class="font-bold">${row.name||'ไม่ทราบชื่อ'}</div>
+          <div class="text-sm text-gray-600">📞 ${row.phone || '-'}</div>
+          <div class="text-sm font-bold text-red-700">ความเร่งด่วน: ${row.urgency||'-'}</div>
+          <div class="text-sm text-gray-700 mt-1">${row.incident_type || '-'}</div>
+          <div class="text-xs text-gray-500 mt-2">${date}</div>
+          <div class="mt-2 text-sm text-gray-600">${row.location_note || '-'}</div>
+        </div>
+        <div class="flex flex-col items-end gap-2">
+          <select onchange="handleChangeStatus(${row.id}, this.value)" class="px-2 py-1 rounded-xl border">
+            <option ${row.status==='รอดำเนินการ'? 'selected' : ''}>รอดำเนินการ</option>
+            <option ${row.status==='รับทราบ'? 'selected' : ''}>รับทราบ</option>
+            <option ${row.status==='กำลังออกไป'? 'selected' : ''}>กำลังออกไป</option>
+            <option ${row.status==='เสร็จสิ้น'? 'selected' : ''}>เสร็จสิ้น</option>
+          </select>
+          <button onclick="window.open('https://www.google.com/maps?q=${row.latitude||0},${row.longitude||0}','_blank')" class="text-sm underline">ดูพิกัด</button>
+          <button onclick="window.location.href='tel:${row.phone||''}'" class="px-3 py-1 rounded-xl bg-green-600 text-white text-sm shadow">โทร</button>
+        </div>
+      </div>`;
+    if(existing){
+      existing.outerHTML = html;
+      // re-select element
+      const sel = listEl.querySelector(`[data-id=report-${row.id}]`);
+      if(sel){ sel.classList.add('pulse-highlight'); setTimeout(()=>sel.classList.remove('pulse-highlight'), 2200); }
+    } else {
+      listEl.insertAdjacentHTML('afterbegin', html);
+      const sel = listEl.querySelector(`[data-id=report-${row.id}]`);
+      if(sel){ sel.classList.add('pulse-highlight'); setTimeout(()=>sel.classList.remove('pulse-highlight'), 2200); sel.scrollIntoView({behavior:'smooth', block:'start'}); }
+    }
+  }catch(e){ console.error('prependOrUpdateReportInList', e); }
+}
+
+function startRealtimeIntegration(){
+  subscribeReportsRealtime(async payload => {
+    try{
+      const evt = (payload.eventType || payload.event || '').toUpperCase();
+      const newRow = payload.new || null; const oldRow = payload.old || null;
+      if(evt === 'INSERT' && newRow){
+        prependOrUpdateReportInList(newRow);
+        // urgent: if pending, play sound & open modal
+        if(newRow.status === 'รอดำเนินการ'){
+          playAlertSound();
+          const reports = await fetchReports();
+          const pending = reports.filter(r=>r.status==='รอดำเนินการ');
+          showPendingModal(pending);
+        }
+        toast('มีการแจ้งเหตุใหม่', 'info');
+      } else if(evt === 'UPDATE' && newRow){
+        prependOrUpdateReportInList(newRow);
+        // if became pending
+        if(oldRow && oldRow.status !== newRow.status && newRow.status === 'รอดำเนินการ'){
+          playAlertSound();
+          const reports = await fetchReports();
+          const pending = reports.filter(r=>r.status==='รอดำเนินการ');
+          showPendingModal(pending);
+        }
+        // if pending count went to zero, stop sound
+        if(oldRow && oldRow.status === 'รอดำเนินการ' && newRow.status !== 'รอดำเนินการ'){
+          const reports = await fetchReports();
+          if(!reports.some(r=>r.status==='รอดำเนินการ')){ stopAlertSound(); removePendingModal(); }
+        }
+        if(oldRow && oldRow.status !== newRow.status){ toast('มีการอัปเดตสถานะ', 'info'); }
+      } else if(evt === 'DELETE' && oldRow){
+        const listEl = document.getElementById('reportsList'); const el = listEl.querySelector(`[data-id=report-${oldRow.id}]`); if(el) el.remove();
+        const reports = await fetchReports(); if(!reports.some(r=>r.status==='รอดำเนินการ')){ stopAlertSound(); removePendingModal(); }
+        toast('มีรายการถูกลบ', 'info');
       }
+    }catch(e){ console.error('realtime payload error', e); }
+  });
+}
 
-      var nameEl = document.createElement('div'); nameEl.className='truncate text-center w-full'; nameEl.title = f.name; nameEl.textContent = f.name;
-      var sizeEl = document.createElement('div'); sizeEl.className='text-[11px] text-gray-400 mt-1'; sizeEl.textContent = formatBytes(f.size);
+// --- Reports rendering for admin ---
+async function loadAndRenderReports(){
+  const list = document.getElementById('reportsList'); list.innerHTML = '<div class="text-gray-500">กำลังโหลด...</div>';
+  let reports = await fetchReports();
+  if(!reports.length) { list.innerHTML = '<div class="text-gray-600">ไม่มีรายการแจ้งเหตุ</div>'; return; }
+  // sort รายการ: ความเร่งด่วน → ประเภทเหตุการณ์ → ชื่อ → เบอร์โทร → รายละเอียดสถานที่ → วันเวลา
+  reports = reports.sort((a,b)=>{
+    const urgencyOrder = {
+      'สูงมาก (วิกฤต)': 1,
+      'สูง': 2,
+      'ปานกลาง': 3,
+      'ต่ำ': 4
+    };
+    const statusPriority = {
+      'รอดำเนินการ': 1,
+      'รับทราบ': 2,
+      'กำลังออกไป': 3,
+      'เสร็จสิ้น': 4
+    };
 
-      var removeBtn = document.createElement('button'); removeBtn.type='button'; removeBtn.className='absolute -top-2 -right-2 bg-red-600 text-white rounded-full w-6 h-6 text-xs flex items-center justify-center'; removeBtn.textContent='×';
-      removeBtn.addEventListener('click', function(e){ e.preventDefault(); removeFile(idx); });
+    const sa = statusPriority[a.status] || 99;
+    const sb = statusPriority[b.status] || 99;
+    if(sa !== sb) return sa - sb;
 
-      tile.appendChild(removeBtn);
-      tile.appendChild(thumbWrap);
-      tile.appendChild(nameEl);
-      tile.appendChild(sizeEl);
-      filesGrid.appendChild(tile);
-    });
+    const ua = urgencyOrder[a.urgency] || 99;
+    const ub = urgencyOrder[b.urgency] || 99;
+    if(ua !== ub) return ua - ub;
 
-    // enable/disable report button depending on whether we require files
-    // keep report button enabled as soon as AI marks NACC responsibility
-    // optionally show count
-    var help = document.getElementById('filesHelp');
-    if(help) help.textContent = 'แสดงไฟล์อัพโหลด ' + (uploadedFiles.length ? ('(' + uploadedFiles.length + ')') : '') + ' — 5 ไฟล์ต่อแถว — คุณสามารถกดปุ่ม "เลือกไฟล์" เพื่อเพิ่มไฟล์ได้หลายครั้ง';
-  }
+    if(a.incident_type !== b.incident_type) return (a.incident_type||'').localeCompare(b.incident_type||'');
+    if(a.name !== b.name) return (a.name||'').localeCompare(b.name||'');
+    if(a.phone !== b.phone) return (a.phone||'').localeCompare(b.phone||'');
+    if(a.location_note !== b.location_note) return (a.location_note||'').localeCompare(b.location_note||'');
+    return new Date(a.created_at) - new Date(b.created_at);
+  });
+  list.innerHTML = reports.map(r=>{
+    const date = r.created_at ? new Date(r.created_at).toLocaleString('th-TH') : '';
+    return `<div class="p-3 rounded-2xl border flex justify-between items-start ${r.status==='รอดำเนินการ'?'bg-[#FDE68A] border-[#FDE68A]':r.status==='รับทราบ'?'bg-[#BFDBFE] border-[#BFDBFE]':r.status==='กำลังออกไป'?'bg-[#FECACA] border-[#FECACA]':'bg-[#BBF7D0] border-[#BBF7D0]'}" data-id="report-${r.id}">
+      <div>
+        <div class="font-bold">${r.name||'ไม่ทราบชื่อ'}</div>
+        <div class="text-sm text-gray-600">📞 ${r.phone || '-'}</div>
+        <div class="text-sm font-bold text-red-700">ความเร่งด่วน: ${r.urgency||'-'}</div>
+        <div class="text-sm text-gray-700 mt-1">${r.incident_type || '-'}</div>
+        <div class="text-xs text-gray-500 mt-2">${date}</div>
+        <div class="mt-2 text-sm text-gray-600">${r.location_note || '-'}</div>
+      </div>
+      <div class="flex flex-col items-end gap-2">
+        <select onchange="handleChangeStatus(${r.id}, this.value)" class="px-2 py-1 rounded-xl border">
+          <option ${r.status==='รอดำเนินการ'? 'selected' : ''}>รอดำเนินการ</option>
+          <option ${r.status==='รับทราบ'? 'selected' : ''}>รับทราบ</option>
+          <option ${r.status==='กำลังออกไป'? 'selected' : ''}>กำลังออกไป</option>
+          <option ${r.status==='เสร็จสิ้น'? 'selected' : ''}>เสร็จสิ้น</option>
+        </select>
+        <button onclick="window.open('https://www.google.com/maps?q=${r.latitude||0},${r.longitude||0}','_blank')" class="px-3 py-1 rounded-xl bg-blue-600 text-white text-sm shadow">ดูพิกัด</button>
+          <button onclick="window.location.href='tel:${r.phone||''}'" class="px-3 py-1 rounded-xl bg-green-600 text-white text-sm shadow">โทร</button>
+      </div>
+    </div>`;
+  }).join('');
 
-  function removeFile(index){
-    if(index < 0 || index >= uploadedFiles.length) return;
-    var it = uploadedFiles[index];
-    if(it.url) URL.revokeObjectURL(it.url);
-    uploadedFiles.splice(index,1);
-    renderFiles();
-  }
+  // if any pending -> show modal + play sound
+  const pending = reports.filter(r=>r.status==='รอดำเนินการ');
+  if(pending.length){ playAlertSound(); showPendingModal(pending); } else { stopAlertSound(); removePendingModal(); }
+}
 
-  if(chooseBtn){
-    chooseBtn.addEventListener('click', function(){ if(fileInput) fileInput.click(); });
-  }
+async function handleChangeStatus(id, value){
+  try{ await updateReportStatus(id, value); toast('อัปเดตสถานะเรียบร้อย','success'); await loadAndRenderReports(); }catch(e){ console.error(e); toast('อัปเดตไม่สำเร็จ','error'); }
+}
 
-  if(fileInput){
-    fileInput.addEventListener('change', function(e){
-      var files = Array.prototype.slice.call(e.target.files || []);
-      files.forEach(function(f){
-        var id = Date.now().toString(36) + Math.random().toString(36).substring(2,6);
-        var url = null;
-        try{ if(f.type && f.type.indexOf('image/') === 0) url = URL.createObjectURL(f); }catch(err){ url = null; }
-        uploadedFiles.push({ id: id, file: f, url: url });
-      });
-      renderFiles();
-      // reset so same file can be selected again later
-      fileInput.value = '';
-    });
-  }
+// --- Download modal logic ---
+const downloadBtn = document.getElementById('downloadReports');
+const downloadModal = document.getElementById('downloadModal');
+const closeDownloadModal = document.getElementById('closeDownloadModal');
+const confirmDownload = document.getElementById('confirmDownload');
 
-  // Expose function to get files when submitting report
-  window.getUploadedFilesForReport = function(){ return uploadedFiles.map(function(it){ return it.file; }); };
+if(downloadBtn){
+  downloadBtn.addEventListener('click', ()=>{
+    downloadModal.classList.remove('hidden');
+    downloadModal.classList.add('flex');
+  });
+}
+if(closeDownloadModal){
+  closeDownloadModal.addEventListener('click', ()=>{
+    downloadModal.classList.add('hidden');
+    downloadModal.classList.remove('flex');
+  });
+}
+if(confirmDownload){
+  confirmDownload.addEventListener('click', ()=>{
+    const start = document.getElementById('downloadStart').value;
+    const end = document.getElementById('downloadEnd').value;
+    if(!start || !end) return toast('กรุณาเลือกช่วงวันที่ให้ครบ','error');
+    // Generate CSV and trigger download
+    (async ()=>{
+      try{
+        const { data, error } = await supabase
+          .from('reports')
+          .select('*')
+          .gte('created_at', start + ' 00:00:00')
+          .lte('created_at', end + ' 23:59:59')
+          .order('created_at', { ascending: true });
 
-})();
+        if(error){ toast('ดึงข้อมูลล้มเหลว','error'); return; }
+        if(!data || !data.length){ toast('ไม่พบข้อมูลในช่วงวันดังกล่าว','error'); return; }
+
+        const csvRows = [];
+        csvRows.push(['ชื่อ','เบอร์โทร','ประเภทเหตุ','ความเร่งด่วน','รายละเอียดสถานที่','ละติจูด','ลองจิจูด','สถานะ','วันเวลา'].join(','));
+        data.forEach(r=>{
+          csvRows.push([
+            '"'+(r.name||'')+'"',
+            '"'+(r.phone||'')+'"',
+            '"'+(r.incident_type||'')+'"',
+            '"'+(r.urgency||'')+'"',
+            '"'+(r.location_note||'')+'"',
+            r.latitude||'',
+            r.longitude||'',
+            '"'+(r.status||'')+'"',
+            '"'+(r.created_at||'')+'"'
+          ].join(','));
+        });
+
+        const blob = new Blob([csvRows.join('\n')], { type:'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'reports_'+start+'_'+end+'.csv';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        toast('ดาวน์โหลดสำเร็จ','success');
+      }catch(e){
+        console.error(e);
+        toast('เกิดข้อผิดพลาดระหว่างดาวน์โหลด','error');
+      }
+    })();
+
+    downloadModal.classList.add('hidden');
+    downloadModal.classList.remove('flex');
+  });
+}
+
+// initial visible
+(function init(){ document.getElementById('reportCard').classList.remove('hidden'); })();
+
 </script>
 
 </body>
 </html>
+
